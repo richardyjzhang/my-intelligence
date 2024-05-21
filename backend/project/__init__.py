@@ -28,6 +28,9 @@ def create_app():
     from .tag import tag as tag_blueprint
     app.register_blueprint(tag_blueprint)
 
+    from .doc import doc as doc_blueprint
+    app.register_blueprint(doc_blueprint)
+
     # from .user import user as user_blueprint
     # app.register_blueprint(user_blueprint)
 

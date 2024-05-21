@@ -17,3 +17,14 @@ class User(UserMixin, db.Model):
 class Tag(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[int] = mapped_column()
+
+
+# 文档类
+@dataclass
+class Doc(db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column()
+    path: Mapped[str] = mapped_column()
+    ct: Mapped[str] = mapped_column()
+    description: Mapped[str] = mapped_column()
+    status: Mapped[int] = mapped_column()

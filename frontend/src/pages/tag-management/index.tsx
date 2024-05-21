@@ -24,7 +24,7 @@ import {
   addOneTagRequest,
   deleteOneTagRequest,
   updateOneTagRequest,
-} from "./service";
+} from "../service";
 import styles from "./index.css";
 
 const TagManagementPage: React.FC = () => {

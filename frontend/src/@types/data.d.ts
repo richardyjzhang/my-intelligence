@@ -4,4 +4,14 @@ declare namespace API {
     id?: number;
     name: string;
   };
+
+  // 文档
+  type Doc = {
+    id?: number;
+    name: string;
+    ct?: string;
+    description?: string;
+    status?: number;
+    tags?: Tag[];
+  };
 }

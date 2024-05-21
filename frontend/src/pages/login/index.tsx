@@ -11,7 +11,7 @@ import { SHA256 } from "crypto-js";
 import React from "react";
 import { useRequest } from "ahooks";
 import styles from "./index.css";
-import { postLoginRequest } from "./service";
+import { postLoginRequest } from "../service";
 import { history } from "umi";
 
 const LoginPage: React.FC = () => {
