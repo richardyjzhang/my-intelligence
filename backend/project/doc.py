@@ -2,6 +2,7 @@ import datetime
 
 from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required
+from sqlalchemy import text
 from werkzeug.exceptions import BadRequest
 
 from . import db
@@ -56,6 +57,8 @@ def delete_doc(id):
     exists = Doc.query.filter_by(id=id).first()
     if exists != None:
         db.session.delete(exists)
+        db.session.execute(
+            text(f'DELETE FROM doc_tag_map WHERE doc_id = {id}'))
         db.session.commit()
     return Response(status=204)
 
