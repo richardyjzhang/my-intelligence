@@ -20,7 +20,7 @@ const LoginPage: React.FC = () => {
     onSuccess: (data) => {
       const result = data as API.LoginResult;
       if (result.success) {
-        message.success(result.message);
+        message.success("登录成功");
         history.push("/");
       } else {
         message.error(result.message);
@@ -36,7 +36,9 @@ const LoginPage: React.FC = () => {
     }
     login({
       ...values,
-      password: SHA256(`${values.password}FUCK`).toString().toUpperCase(),
+      password: SHA256(`${values.password}MYINTELLIGENCE`)
+        .toString()
+        .toUpperCase(),
     });
   };
 
