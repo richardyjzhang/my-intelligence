@@ -48,12 +48,12 @@ const LoginPage: React.FC = () => {
         <div className={styles.loginCard}>
           <div className={styles.loginTitle}>
             <img className={styles.loginIcon} src="icon.png" />
-            <div className={styles.loginTitleText}>情报管理系统</div>
+            <div className={styles.loginTitleText}>智能情报管理系统</div>
           </div>
           <ConfigProvider
             theme={{
               token: {
-                colorPrimary: "#00b96b",
+                colorPrimary: "#2D3047BB",
               },
             }}
           >
