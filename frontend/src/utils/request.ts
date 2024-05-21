@@ -27,7 +27,8 @@ request.interceptors.response.use(
           break;
       }
     }
-    return Promise.reject(msg);
+
+    return error.response.message;
   }
 );
 

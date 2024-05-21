@@ -129,7 +129,7 @@ const TagManagementPage: React.FC = () => {
       setModalOpen(false);
       if (!curTag?.id) {
         await addOneTag(tag);
-      } else {
+      } else if (curTag.name !== tag.name) {
         tag.id = curTag.id;
         await updateOneTag(tag);
       }

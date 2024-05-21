@@ -8,20 +8,18 @@ export async function fetchTagsRequest() {
 
 // 新增一个标签
 export async function addOneTagRequest(tag: API.Tag) {
-  const response = await request("/api/tags", {
+  await request("/api/tags", {
     method: "POST",
     data: tag,
   });
-  return response;
 }
 
 // 更新一个标签
 export async function updateOneTagRequest(tag: API.Tag) {
-  const response = await request(`/api/tags/${tag.id}`, {
+  await request(`/api/tags/${tag.id}`, {
     method: "PUT",
     data: tag,
   });
-  return response;
 }
 
 // 删除某个标签
