@@ -1,0 +1,38 @@
+.mainCard {
+    height: max-content;
+}
+
+.search {
+    display: flex;
+    margin-bottom: 1rem;
+}
+
+.space {
+    flex-grow: 1;
+}
+
+.operations {
+    display: flex;
+}
+
+.relatedButton {
+    padding: 0;
+}
+
+.operationButton {
+    padding: 0;
+    margin-right: 1rem;
+}
+
+.addEditModal {
+    display: flex;
+    justify-content: center;
+}
+
+.addEditForm {
+    width: 400px;
+}
+
+.addEditButton {
+    width: 100%;
+}

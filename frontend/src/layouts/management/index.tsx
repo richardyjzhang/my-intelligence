@@ -28,7 +28,7 @@ export default function Layout() {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: "#2D3047BB",
+          colorPrimary: "#2D3047",
         },
       }}
     >
