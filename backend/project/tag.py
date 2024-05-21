@@ -62,6 +62,12 @@ def modify_tag(id):
     except KeyError:
         raise BadRequest
 
+    # 禁止添加同名标签
+    exists = Tag.query.filter_by(name=name).first()
+    if exists != None:
+        raise BadRequest
+
+    # 对已有标签进行修改
     exists = db.get_or_404(Tag, id)
     exists.name = name
 
