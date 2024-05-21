@@ -25,6 +25,9 @@ def create_app():
     from .auth import auth as auth_blueprint
     app.register_blueprint(auth_blueprint)
 
+    from .tag import tag as tag_blueprint
+    app.register_blueprint(tag_blueprint)
+
     # from .user import user as user_blueprint
     # app.register_blueprint(user_blueprint)
 
