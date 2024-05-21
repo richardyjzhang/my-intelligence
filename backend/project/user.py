@@ -11,7 +11,6 @@ user = Blueprint('user', __name__)
 
 # 创建用户
 @user.route('/users', methods=['POST'])
-@login_required
 def create_user():
 
     request_body = request.get_json()
