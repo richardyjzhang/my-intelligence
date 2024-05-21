@@ -23,10 +23,10 @@ def login():
     # 用户名不存在或密码错误，均认为登录错误
     user = User.query.filter_by(username=username).first()
     if not user or not check_password_hash(user.password, password):
-        return {"success": False, "message": "用户名或密码错误"}, 400
+        return {"success": False, "message": "用户名或密码错误"}, 200
 
     login_user(user)
-    return {"success": True}, 201
+    return {"success": True}, 200
 
 
 # 登出接口
