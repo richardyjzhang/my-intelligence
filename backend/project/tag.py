@@ -18,6 +18,7 @@ def create_tag():
 
     try:
         name = request_body["name"]
+        color = request_body["color"]
     except KeyError:
         raise BadRequest
 
@@ -26,7 +27,7 @@ def create_tag():
     if exists != None:
         raise BadRequest
 
-    new_tag = Tag(name=name)
+    new_tag = Tag(name=name, color=color)
     db.session.add(new_tag)
     db.session.commit()
 
@@ -62,17 +63,19 @@ def modify_tag(id):
 
     try:
         name = request_body["name"]
+        color = request_body["color"]
     except KeyError:
         raise BadRequest
 
     # 禁止添加同名标签
     exists = Tag.query.filter_by(name=name).first()
-    if exists != None:
+    if exists != None and exists.color == color:
         raise BadRequest
 
     # 对已有标签进行修改
     exists = db.get_or_404(Tag, id)
     exists.name = name
+    exists.color = color
 
     exists.verified = True
     db.session.commit()

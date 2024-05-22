@@ -3,6 +3,7 @@ declare namespace API {
   type Tag = {
     id?: number;
     name: string;
+    color: string;
   };
 
   // 文档

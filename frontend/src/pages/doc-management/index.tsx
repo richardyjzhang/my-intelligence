@@ -109,7 +109,7 @@ const DocManagementPage: React.FC = () => {
           <div className={styles.tagWrapper}>
             {doc.tags?.map((tagId) => {
               const tag = tags.find((t: API.Tag) => t.id === tagId);
-              return <Tag>{tag.name}</Tag>;
+              return <Tag color={tag.color}>{tag.name}</Tag>;
             })}
           </div>
         );

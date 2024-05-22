@@ -25,7 +25,8 @@ class User(UserMixin, db.Model, Base):
 @dataclass
 class Tag(db.Model, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[int] = mapped_column()
+    name: Mapped[str] = mapped_column()
+    color: Mapped[str] = mapped_column()
 
 
 # 文档类

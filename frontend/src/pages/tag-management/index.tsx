@@ -10,6 +10,8 @@ import {
   TableProps,
   ConfigProvider,
   Modal,
+  Tag,
+  Select,
 } from "antd";
 import {
   EditOutlined,
@@ -25,6 +27,7 @@ import {
   deleteOneTagRequest,
   updateOneTagRequest,
 } from "../service";
+import { tagColors } from "./color";
 import styles from "./index.css";
 
 const TagManagementPage: React.FC = () => {
@@ -59,8 +62,8 @@ const TagManagementPage: React.FC = () => {
     },
     {
       title: "标签名称",
-      dataIndex: "name",
       key: "name",
+      render: (_, tag) => <Tag color={tag.color}>{tag.name}</Tag>,
     },
     {
       title: "操作",
@@ -125,13 +128,17 @@ const TagManagementPage: React.FC = () => {
 
   // 新增编辑弹窗
   const AddEditModal = () => {
-    const onFormFinished = async (tag: API.Tag) => {
+    const onFormFinished = async (value: { name: string; color: string }) => {
+      const newTag: API.Tag = {
+        name: value.name,
+        color: value.color,
+      };
       setModalOpen(false);
       if (!curTag?.id) {
-        await addOneTag(tag);
-      } else if (curTag.name !== tag.name) {
-        tag.id = curTag.id;
-        await updateOneTag(tag);
+        await addOneTag(newTag);
+      } else if (curTag.name !== newTag.name || curTag.color !== newTag.color) {
+        newTag.id = curTag.id;
+        await updateOneTag(newTag);
       }
       setCurTag(null);
       fetchTags();
@@ -159,6 +166,19 @@ const TagManagementPage: React.FC = () => {
               initialValue={curTag?.name}
             >
               <Input placeholder="标签名称" />
+            </Form.Item>
+            <Form.Item
+              name="color"
+              label="标签颜色"
+              rules={[{ required: true }]}
+              initialValue={curTag?.color}
+            >
+              <Select
+                options={tagColors.map((t) => ({
+                  value: t.name,
+                  label: <Tag color={t.name}>{t.desc}</Tag>,
+                }))}
+              />
             </Form.Item>
             <Button
               type="primary"
