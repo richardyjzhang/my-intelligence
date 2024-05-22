@@ -289,7 +289,7 @@ const DocManagementPage: React.FC = () => {
   };
 
   return (
-    <Card className={styles.mainCard} title="标签管理">
+    <Card className={styles.mainCard} title="文档管理">
       <div className={styles.search}>
         <Button
           icon={<PlusOutlined />}
