@@ -57,7 +57,7 @@ export async function addOneDocRequest(doc: API.Doc, file: File) {
   formData.append("file", file);
   formData.append("name", doc.name);
   formData.append("description", doc.description || "");
-  await request.postForm("/api/docs", formData);
+  return await request.postForm("/api/docs", formData);
 }
 
 // 更新一个文档
@@ -65,5 +65,13 @@ export async function updateOneDocRequest(doc: API.Doc) {
   await request(`/api/docs/${doc.id}`, {
     method: "PUT",
     data: doc,
+  });
+}
+
+// 设置文档的标签
+export async function updateOneDocTagRequest(docId: number, tagIds: number[]) {
+  await request(`/api/docs/tags/${docId}`, {
+    method: "POST",
+    data: tagIds,
   });
 }

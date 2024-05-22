@@ -28,3 +28,10 @@ class Doc(db.Model):
     ct: Mapped[str] = mapped_column()
     description: Mapped[str] = mapped_column()
     status: Mapped[int] = mapped_column()
+
+
+# 文档和标签关联
+@dataclass
+class DocTagMap(db.Model):
+    doc_id: Mapped[int] = mapped_column(primary_key=True)
+    tag_id: Mapped[int] = mapped_column(primary_key=True)

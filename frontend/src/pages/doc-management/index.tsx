@@ -28,6 +28,7 @@ import {
   addOneDocRequest,
   updateOneDocRequest,
   deleteOneDocRequest,
+  updateOneDocTagRequest,
 } from "../service";
 import styles from "./index.css";
 
@@ -48,6 +49,9 @@ const DocManagementPage: React.FC = () => {
   const { runAsync: deleteOneDoc } = useRequest(deleteOneDocRequest, {
     manual: true,
   });
+  const { runAsync: updateOneDocTag } = useRequest(updateOneDocTagRequest, {
+    manual: true,
+  });
 
   // 添加一个文档
   const onCreate = async (value: {
@@ -65,7 +69,10 @@ const DocManagementPage: React.FC = () => {
     const file = value.file?.file;
 
     if (file) {
-      await addOneDoc(newDoc, file);
+      const thisDoc: API.Doc = await addOneDoc(newDoc, file);
+      if (thisDoc.id && value.tags) {
+        await updateOneDocTag(thisDoc.id, value.tags);
+      }
       fetchDocs();
     }
   };
@@ -181,6 +188,9 @@ const DocManagementPage: React.FC = () => {
           name: value.name,
           description: value.description,
         });
+        if (curDoc.id) {
+          await updateOneDocTag(curDoc.id, value.tags || []);
+        }
         fetchDocs();
       }
       setCurDoc(null);
@@ -225,7 +235,6 @@ const DocManagementPage: React.FC = () => {
                 </Upload.Dragger>
               </Form.Item>
             ) : null}
-
             <Form.Item
               name="name"
               label="文档名称"

@@ -6,7 +6,7 @@ from sqlalchemy import text
 from werkzeug.exceptions import BadRequest
 
 from . import db
-from .models import Doc
+from .models import Doc, DocTagMap
 from .store import store_file
 
 doc = Blueprint('doc', __name__)
@@ -84,3 +84,22 @@ def modify_doc(id):
     db.session.commit()
 
     return jsonify(exists), 200
+
+
+# 修改某个文档的标签，全量修改
+@doc.route('/docs/tags/<id>', methods=['POST'])
+@login_required
+def set_doc_tags(id):
+
+    tag_ids = request.get_json()
+    if not isinstance(tag_ids, list):
+        raise BadRequest
+    db.get_or_404(Doc, id)
+
+    # 删除已有标签，并重新添加标签
+    new_maps = [DocTagMap(doc_id=id, tag_id=t) for t in tag_ids]
+    db.session.execute(text(f'DELETE FROM doc_tag_map WHERE doc_id = {id}'))
+    db.session.add_all(new_maps)
+    db.session.commit()
+
+    return Response(status=200)
