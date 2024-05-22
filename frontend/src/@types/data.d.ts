@@ -12,6 +12,6 @@ declare namespace API {
     ct?: string;
     description?: string;
     status?: number;
-    tags?: Tag[];
+    tags?: number[];
   };
 }

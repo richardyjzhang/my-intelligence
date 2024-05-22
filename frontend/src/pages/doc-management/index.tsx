@@ -12,6 +12,7 @@ import {
   ConfigProvider,
   Modal,
   Upload,
+  Tag,
 } from "antd";
 import {
   EditOutlined,
@@ -99,6 +100,20 @@ const DocManagementPage: React.FC = () => {
       title: "文档说明",
       dataIndex: "description",
       key: "description",
+    },
+    {
+      title: "文档标签",
+      key: "tags",
+      render: (_, doc) => {
+        return (
+          <div className={styles.tagWrapper}>
+            {doc.tags?.map((tagId) => {
+              const tag = tags.find((t: API.Tag) => t.id === tagId);
+              return <Tag>{tag.name}</Tag>;
+            })}
+          </div>
+        );
+      },
     },
     {
       title: "文档处理状态",
