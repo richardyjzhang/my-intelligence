@@ -2,11 +2,11 @@ import datetime
 
 from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required
-from sqlalchemy import text
+from sqlalchemy import text, select
 from werkzeug.exceptions import BadRequest
 
 from . import db
-from .models import Doc, DocTagMap
+from .models import Doc, DocTagMap, Tag
 from .store import store_file
 
 doc = Blueprint('doc', __name__)
@@ -46,8 +46,21 @@ def create_doc():
 @doc.route('/docs', methods=['GET'])
 @login_required
 def list_docs():
+
+    # 获取数据库中的所有文档和标签映射
     docs = Doc.query.all()
-    return docs, 200
+    maps = DocTagMap.query.all()
+
+    # 将标签映射的ID补充道对应的文档中
+    id2doc = {}
+    for d in docs:
+        id2doc[d.id] = d.to_dict()
+        id2doc[d.id]['tags'] = []
+    for m in maps:
+        if m.doc_id in id2doc:
+            id2doc[m.doc_id]['tags'].append(m.tag_id)
+
+    return list(id2doc.values()), 200
 
 
 # 删除某个文档
