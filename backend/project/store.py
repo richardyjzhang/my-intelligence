@@ -12,3 +12,9 @@ def store_file(file):
     file.save(path)
 
     return path
+
+
+# 删除一个文件
+def del_file(rel_path):
+    if os.path.exists(rel_path):
+        os.remove(rel_path)

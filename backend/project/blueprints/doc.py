@@ -2,12 +2,12 @@ import datetime
 
 from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required
-from sqlalchemy import text, select
+from sqlalchemy import text
 from werkzeug.exceptions import BadRequest
 
 from .. import db
 from ..models import Doc, DocTagMap
-from ..store import store_file
+from ..store import store_file, del_file
 from ..utils.snowflake import new_id
 
 doc = Blueprint('doc', __name__)
@@ -74,6 +74,7 @@ def delete_doc(id):
         db.session.execute(
             text(f'DELETE FROM doc_tag_map WHERE doc_id = {id}'))
         db.session.commit()
+        del_file(exists.path)
     return Response(status=204)
 
 
