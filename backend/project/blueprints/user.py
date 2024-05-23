@@ -3,8 +3,8 @@ from flask_login import login_required
 from werkzeug.security import generate_password_hash
 from werkzeug.exceptions import BadRequest
 
-from . import db
-from .models import User
+from .. import db
+from ..models import User
 
 user = Blueprint('user', __name__)
 

@@ -5,9 +5,9 @@ from flask_login import login_required
 from sqlalchemy import text, select
 from werkzeug.exceptions import BadRequest
 
-from . import db
-from .models import Doc, DocTagMap, Tag
-from .store import store_file
+from .. import db
+from ..models import Doc, DocTagMap, Tag
+from ..store import store_file
 
 doc = Blueprint('doc', __name__)
 

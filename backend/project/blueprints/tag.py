@@ -3,8 +3,8 @@ from flask_login import login_required
 from sqlalchemy import text
 from werkzeug.exceptions import BadRequest
 
-from . import db
-from .models import Tag
+from .. import db
+from ..models import Tag
 
 tag = Blueprint('tag', __name__)
 
