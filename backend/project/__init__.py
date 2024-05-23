@@ -40,4 +40,7 @@ def create_app():
     # from .user import user as user_blueprint
     # app.register_blueprint(user_blueprint)
 
+    from .services.dispatcher import init_dispatcher
+    init_dispatcher()
+
     return app
