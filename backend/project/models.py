@@ -43,5 +43,6 @@ class Doc(db.Model, Base):
 # 文档和标签关联
 @dataclass
 class DocTagMap(db.Model, Base):
-    doc_id: Mapped[int] = mapped_column(primary_key=True)
-    tag_id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    doc_id: Mapped[int] = mapped_column()
+    tag_id: Mapped[int] = mapped_column()

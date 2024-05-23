@@ -5,6 +5,7 @@ from werkzeug.exceptions import BadRequest
 
 from .. import db
 from ..models import Tag
+from ..utils.snowflake import new_id
 
 tag = Blueprint('tag', __name__)
 
@@ -27,7 +28,7 @@ def create_tag():
     if exists != None:
         raise BadRequest
 
-    new_tag = Tag(name=name, color=color)
+    new_tag = Tag(id=new_id(), name=name, color=color)
     db.session.add(new_tag)
     db.session.commit()
 

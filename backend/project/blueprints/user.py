@@ -1,10 +1,10 @@
 from flask import Blueprint, request
-from flask_login import login_required
 from werkzeug.security import generate_password_hash
 from werkzeug.exceptions import BadRequest
 
 from .. import db
 from ..models import User
+from ..utils.snowflake import new_id
 
 user = Blueprint('user', __name__)
 
@@ -26,7 +26,7 @@ def create_user():
     if exists != None:
         raise BadRequest
 
-    new_user = User(username=username,
+    new_user = User(id=new_id(), username=username,
                     password=generate_password_hash(password))
     db.session.add(new_user)
     db.session.commit()

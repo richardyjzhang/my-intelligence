@@ -6,8 +6,9 @@ from sqlalchemy import text, select
 from werkzeug.exceptions import BadRequest
 
 from .. import db
-from ..models import Doc, DocTagMap, Tag
+from ..models import Doc, DocTagMap
 from ..store import store_file
+from ..utils.snowflake import new_id
 
 doc = Blueprint('doc', __name__)
 
@@ -33,7 +34,7 @@ def create_doc():
 
     path = store_file(file)
 
-    new_doc = Doc(name=name, path=path, ct=ct,
+    new_doc = Doc(id=new_id(), name=name, path=path, ct=ct,
                   description=description, status=status)
 
     db.session.add(new_doc)
@@ -110,7 +111,7 @@ def set_doc_tags(id):
     db.get_or_404(Doc, id)
 
     # 删除已有标签，并重新添加标签
-    new_maps = [DocTagMap(doc_id=id, tag_id=t) for t in tag_ids]
+    new_maps = [DocTagMap(id=new_id(), doc_id=id, tag_id=t) for t in tag_ids]
     db.session.execute(text(f'DELETE FROM doc_tag_map WHERE doc_id = {id}'))
     db.session.add_all(new_maps)
     db.session.commit()
