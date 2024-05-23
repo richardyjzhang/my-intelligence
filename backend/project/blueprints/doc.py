@@ -9,6 +9,7 @@ from .. import db
 from ..models import Doc, DocTagMap
 from ..store import store_file, del_file
 from ..utils.snowflake import new_id
+from ..services.dispatcher import handle_one_doc
 
 doc = Blueprint('doc', __name__)
 
@@ -39,6 +40,9 @@ def create_doc():
 
     db.session.add(new_doc)
     db.session.commit()
+
+    # 对文档进行识别处理
+    handle_one_doc(new_doc.id, new_doc.path)
 
     return jsonify(new_doc), 201
 
