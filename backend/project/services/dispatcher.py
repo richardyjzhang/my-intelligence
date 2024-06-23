@@ -1,11 +1,12 @@
 import threading
 import redis
 import json
-import time
 
 import pymupdf
 import numpy as np
 from paddleocr import PaddleOCR
+
+from elasticsearch import Elasticsearch
 
 from .. import config
 
@@ -22,6 +23,12 @@ QUEUE_NAME = 'my-intelligence-extraction'
 # OCR实例
 ocr = PaddleOCR(use_angle_cls=True, lang='ch')
 
+# ElasticSearch连接
+es = Elasticsearch(hosts=config['es-hosts'])
+
+# ElasticSearch Index
+ES_INDEX = 'my-intelligence'
+
 
 # 对一个文档进行处理（丢入队列）
 def handle_one_doc(id: int, path: str):
@@ -30,7 +37,6 @@ def handle_one_doc(id: int, path: str):
         "path": path,
     }
     payload = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    print(payload)
     r.rpush(QUEUE_NAME, payload)
 
 
@@ -39,9 +45,15 @@ def start_consuming():
     while True:
         item = r.blpop(QUEUE_NAME, timeout=0)
         if item:
-            data = json.loads(item[1])
-            print(data)
-            context_text = get_doc_content(data["path"])
+            try:
+                data = json.loads(item[1])
+                content_text = get_doc_content(data["path"])
+                es.index(index=ES_INDEX, body={
+                    "id": data['id'],
+                    "content": content_text,
+                })
+            except Exception as e:
+                print(e)
 
 
 # 处理一份文档
