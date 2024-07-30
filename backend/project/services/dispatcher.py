@@ -6,8 +6,7 @@ import pymupdf
 import numpy as np
 from paddleocr import PaddleOCR
 
-from elasticsearch import Elasticsearch
-
+from .eshelper import index_one_document
 from .. import config
 
 # Redis连接
@@ -22,12 +21,6 @@ QUEUE_NAME = 'my-intelligence-extraction'
 
 # OCR实例
 ocr = PaddleOCR(use_angle_cls=True, lang='ch')
-
-# ElasticSearch连接
-es = Elasticsearch(hosts=config['es-hosts'])
-
-# ElasticSearch Index
-ES_INDEX = 'my-intelligence'
 
 
 # 对一个文档进行处理（丢入队列）
@@ -47,11 +40,8 @@ def start_consuming():
         if item:
             try:
                 data = json.loads(item[1])
-                content_text = get_doc_content(data["path"])
-                es.index(index=ES_INDEX, body={
-                    "id": data['id'],
-                    "content": content_text,
-                })
+                content = get_doc_content(data["path"])
+                index_one_document(id=data['id'], content=content)
             except Exception as e:
                 print(e)
 

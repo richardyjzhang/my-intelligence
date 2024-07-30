@@ -10,6 +10,7 @@ from ..models import Doc, DocTagMap
 from ..store import store_file, del_file
 from ..utils.snowflake import new_id
 from ..services.dispatcher import handle_one_doc
+from ..services.eshelper import search_documents
 
 doc = Blueprint('doc', __name__)
 
@@ -56,7 +57,7 @@ def list_docs():
     docs = Doc.query.all()
     maps = DocTagMap.query.all()
 
-    # 将标签映射的ID补充道对应的文档中
+    # 将标签映射的ID补充到对应的文档中
     id2doc = {}
     for d in docs:
         id2doc[d.id] = d.to_dict()
@@ -64,6 +65,38 @@ def list_docs():
     for m in maps:
         if m.doc_id in id2doc:
             id2doc[m.doc_id]['tags'].append(m.tag_id)
+
+    return list(id2doc.values()), 200
+
+
+# 文档全文搜索
+@doc.route('/docs/search', methods=['POST'])
+@login_required
+def search_docs():
+    request_body = request.get_json()
+    try:
+        keyword = request_body['keyword']
+    except KeyError:
+        raise BadRequest
+
+    results = search_docs(keyword)
+    ids = [r['id'] for r in results]
+
+    # 获取数据库中的相关文档和标签映射
+    docs = Doc.query.filter(Doc.id.in_(ids)).all()
+    maps = DocTagMap.query.all()
+
+    # 将标签映射的ID和搜索结果补充到对应的文档中
+    id2doc = {}
+    for d in docs:
+        id2doc[d.id] = d.to_dict()
+        id2doc[d.id]['tags'] = []
+    for m in maps:
+        if m.doc_id in id2doc:
+            id2doc[m.doc_id]['tags'].append(m.tag_id)
+    for r in results:
+        if r['id'] in id2doc:
+            id2doc[r['id']]['result'] = r['content']
 
     return list(id2doc.values()), 200
 
