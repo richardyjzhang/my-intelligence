@@ -39,7 +39,7 @@ def create_tag():
 @tag.route('/tags', methods=['GET'])
 @login_required
 def list_tags():
-    tags = Tag.query.all()
+    tags = Tag.query.order_by(Tag.color).all()
     return tags, 200
 
 
