@@ -100,6 +100,8 @@ const DocManagementPage: React.FC = () => {
       title: "文档说明",
       dataIndex: "description",
       key: "description",
+      width: 300,
+      ellipsis: true,
     },
     {
       title: "文档标签",
