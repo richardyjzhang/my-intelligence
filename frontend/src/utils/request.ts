@@ -3,7 +3,7 @@ import { history } from "umi";
 import { message } from "antd";
 
 const request = axios.create({
-  baseURL: "http://127.0.0.1:8000",
+  baseURL: `${document.location.origin}`,
 });
 
 // 创建响应拦截

@@ -2,7 +2,7 @@ import request from "@/utils/request";
 
 // 登录请求
 export async function postLoginRequest(user: API.LoginUser) {
-  const response = await request("/api/login", {
+  const response = await request("/api/my-intelligence/login", {
     method: "POST",
     data: user,
   });
@@ -11,13 +11,13 @@ export async function postLoginRequest(user: API.LoginUser) {
 
 // 获取标签列表
 export async function fetchTagsRequest() {
-  const response = await request("/api/tags");
+  const response = await request("/api/my-intelligence/tags");
   return response;
 }
 
 // 新增一个标签
 export async function addOneTagRequest(tag: API.Tag) {
-  await request("/api/tags", {
+  await request("/api/my-intelligence/tags", {
     method: "POST",
     data: tag,
   });
@@ -25,7 +25,7 @@ export async function addOneTagRequest(tag: API.Tag) {
 
 // 更新一个标签
 export async function updateOneTagRequest(tag: API.Tag) {
-  await request(`/api/tags/${tag.id}`, {
+  await request(`/api/my-intelligence/tags/${tag.id}`, {
     method: "PUT",
     data: tag,
   });
@@ -33,20 +33,20 @@ export async function updateOneTagRequest(tag: API.Tag) {
 
 // 删除某个标签
 export async function deleteOneTagRequest(id: number) {
-  await request(`/api/tags/${id}`, {
+  await request(`/api/my-intelligence/tags/${id}`, {
     method: "DELETE",
   });
 }
 
 // 获取文档列表
 export async function fetchDocsRequest() {
-  const response = await request("/api/docs");
+  const response = await request("/api/my-intelligence/docs");
   return response;
 }
 
 // 删除某个文档
 export async function deleteOneDocRequest(id: number) {
-  await request(`/api/docs/${id}`, {
+  await request(`/api/my-intelligence/docs/${id}`, {
     method: "DELETE",
   });
 }
@@ -57,12 +57,12 @@ export async function addOneDocRequest(doc: API.Doc, file: File) {
   formData.append("file", file);
   formData.append("name", doc.name);
   formData.append("description", doc.description || "");
-  return await request.postForm("/api/docs", formData);
+  return await request.postForm("/api/my-intelligence/docs", formData);
 }
 
 // 更新一个文档
 export async function updateOneDocRequest(doc: API.Doc) {
-  await request(`/api/docs/${doc.id}`, {
+  await request(`/api/my-intelligence/docs/${doc.id}`, {
     method: "PUT",
     data: doc,
   });
@@ -70,7 +70,7 @@ export async function updateOneDocRequest(doc: API.Doc) {
 
 // 设置文档的标签
 export async function updateOneDocTagRequest(docId: number, tagIds: number[]) {
-  await request(`/api/docs/tags/${docId}`, {
+  await request(`/api/my-intelligence/docs/tags/${docId}`, {
     method: "POST",
     data: tagIds,
   });

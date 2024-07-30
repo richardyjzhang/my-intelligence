@@ -39,11 +39,12 @@ export default defineConfig({
   history: {
     type: "hash",
   },
+  publicPath: process.env.NODE_ENV === "production" ? "./" : "/",
   proxy: {
-    "/api": {
+    "/api/my-intelligence": {
       target: "http://127.0.0.1:5000/",
       changeOrigin: true,
-      pathRewrite: { "^/api": "" },
+      pathRewrite: { "^/api/my-intelligence": "" },
     },
   },
   npmClient: "yarn",
