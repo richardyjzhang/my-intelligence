@@ -44,6 +44,21 @@ export async function fetchDocsRequest() {
   return response;
 }
 
+// 文档智能搜索
+export async function fetchDocsAllinSearchRequest(
+  keyword: string,
+  tagIds: number[]
+) {
+  const response = await request("/api/my-intelligence/docs/allin-search", {
+    method: "POST",
+    data: {
+      keyword,
+      tagIds,
+    },
+  });
+  return response;
+}
+
 // 删除某个文档
 export async function deleteOneDocRequest(id: number) {
   await request(`/api/my-intelligence/docs/${id}`, {

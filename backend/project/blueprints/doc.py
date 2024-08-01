@@ -2,7 +2,7 @@ import datetime
 
 from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required
-from sqlalchemy import text
+from sqlalchemy import text, or_
 from werkzeug.exceptions import BadRequest
 
 from .. import db
@@ -65,6 +65,45 @@ def list_docs():
     for m in maps:
         if m.doc_id in id2doc:
             id2doc[m.doc_id]['tags'].append(m.tag_id)
+
+    return list(id2doc.values()), 200
+
+
+# 文档智能搜索，在文件标题、描述和全文内容中搜索
+@doc.route('/docs/allin-search', methods=['POST'])
+@login_required
+def allin_search_docs():
+    try:
+        request_body = request.get_json()
+        keyword = request_body.get('keywords', '')
+        tagIds = request_body.get('tagIds', None)
+    except KeyError:
+        raise BadRequest
+
+    # 最终结果
+    id2doc = {}
+
+    # 首先按照文档标题和描述搜索
+    tagClause = ''
+    if tagIds != None and len(tagIds) > 0:
+        tagIds = ','.join(tagIds)
+        tagClause = f' AND tagId IN ({tagIds}) '
+    results = db.session.execute(
+        text(' SELECT d.id, d.name, d.path, d.ct, d.description, d.status, m.tag_id '
+             f" FROM doc d LEFT JOIN doc_tag_map m ON d.id = m.doc_id "
+             f" WHERE (d.name LIKE '%{keyword}%' OR d.description LIKE '%{keyword}%') "
+             f' {tagClause} ')).all()
+    for d in results:
+        doc = Doc(id=d[0], name=d[1], path=d[2],
+                  ct=d[3], description=d[4], status=d[5])
+        if not doc.id in id2doc:
+            id2doc[doc.id] = doc.to_dict()
+            id2doc[d.id]['tagIds'] = []
+        if d[6] != None:
+            id2doc[d.id]['tagIds'].append(d[6])
+
+    # 其次按照全文内容搜索
+    # TODO
 
     return list(id2doc.values()), 200
 

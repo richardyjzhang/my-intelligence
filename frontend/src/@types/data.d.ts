@@ -21,7 +21,7 @@ declare namespace API {
     id: number;
     name: string;
     description?: string;
-    tags?: number[];
+    tagIds?: number[];
     match?: string;
   };
 }

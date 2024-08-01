@@ -2,33 +2,30 @@ import React, { useState } from "react";
 import { Button, Card, Divider, Form, Input, Select, Space, Tag } from "antd";
 import { CloudDownloadOutlined } from "@ant-design/icons";
 import { useRequest } from "ahooks";
-import { fetchTagsRequest } from "../service";
+import { fetchTagsRequest, fetchDocsAllinSearchRequest } from "../service";
 import styles from "./index.css";
 
 const DashboardPage: React.FC = () => {
   // 各种网络请求
-  const { runAsync: fetchTags, data: tags } = useRequest(fetchTagsRequest);
+  const { data: tags } = useRequest(fetchTagsRequest);
+  const { runAsync: fetchDocsAllinSearch } = useRequest(
+    fetchDocsAllinSearchRequest,
+    {
+      manual: true,
+      onSuccess: (data: API.SearchResult[]) => {
+        console.log(data);
+        setResults([...data]);
+      },
+    }
+  );
 
   // 搜索结果
-  const [results, setResults] = useState<API.SearchResult[]>([
-    {
-      id: 589561819922432,
-      name: "宁靖盐公司桥梁养护辅助决策技术体系研究响应文件(东衢).doc",
-      description:
-        "宁靖盐公司养护决策投标文件，主要根据病害和病害发展趋势进行单桥综合评估以及桥梁群优先级排序",
-      tags: [589557650784256, 589558007300096, 589558288318464],
-    },
-    {
-      id: 589561819922433,
-      name: "宁靖盐公司桥梁养护辅助决策技术体系研究响应文件(东衢).doc",
-      description:
-        "宁靖盐公司养护决策投标文件，主要根据病害和病害发展趋势进行单桥综合评估以及桥梁群优先级排序",
-      tags: [589557650784256, 589558007300096, 589558288318464],
-    },
-  ]);
+  const [results, setResults] = useState<API.SearchResult[]>([]);
 
-  const onSearch = (values: { type: string; keywords: string }) => {
-    console.log(values);
+  const onSearch = (values: { type: string; keyword: string }) => {
+    if (values.type === "allin") {
+      fetchDocsAllinSearch(values.keyword, []);
+    }
   };
 
   return (
@@ -57,7 +54,7 @@ const DashboardPage: React.FC = () => {
                 ]}
               />
             </Form.Item>
-            <Form.Item name="keywords" className={styles.searchContent}>
+            <Form.Item name="keyword" className={styles.searchContent}>
               <Input allowClear className={styles.searchContentInput} />
             </Form.Item>
             <Button
@@ -78,7 +75,7 @@ const DashboardPage: React.FC = () => {
               <div className={styles.resultInfo}>
                 <div className={styles.resultTitle}>{r.name}</div>
                 <div className={styles.resultTagBar}>
-                  {r.tags?.map((tagId) => {
+                  {r.tagIds?.map((tagId) => {
                     const tag: API.Tag = tags?.find(
                       (t: API.Tag) => t.id === tagId
                     );
@@ -87,8 +84,11 @@ const DashboardPage: React.FC = () => {
                     }
                     return <Tag color={tag.color}>{tag.name}</Tag>;
                   })}
+                  <Divider type="vertical" />
+                  <div className={styles.resultDescription}>
+                    {r.description || "暂无描述"}
+                  </div>
                 </div>
-                <div className={styles.resultDescription}>{r.description}</div>
               </div>
               <div className={styles.resultDownload}>
                 <Button type="link" icon={<CloudDownloadOutlined />}>
