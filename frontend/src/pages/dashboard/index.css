@@ -1,0 +1,61 @@
+.mainCard {
+    height: max-content;
+}
+
+.searchArea {
+    width: 100%;
+}
+
+.searchBar {
+    width: 100%;
+    height: 3rem;
+}
+
+.searchMethodSelect {
+    width: 8rem;
+    height: 2.5rem;
+}
+
+.searchContent {
+    flex-grow: 1;
+}
+
+.searchContentInput {
+    height: 2.5rem;
+}
+
+.searchSubmitButton {
+    width: 6rem;
+    height: 2.5rem;
+}
+
+.searchResultsArea {
+    width: 100%;
+    height: calc(100vh - 20rem);
+}
+
+.resultArea {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.resultInfo {
+    flex-grow: 1;
+}
+
+.resultTitle {
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.resultTagBar {
+    display: flex;
+    margin-top: 0.5rem;
+}
+
+.resultDescription {
+    margin-top: 0.5rem;
+}
+
+.resultDownload {}

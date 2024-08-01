@@ -15,4 +15,13 @@ declare namespace API {
     status?: number;
     tags?: number[];
   };
+
+  // 搜索结果
+  type SearchResult = {
+    id: number;
+    name: string;
+    description?: string;
+    tags?: number[];
+    match?: string;
+  };
 }
