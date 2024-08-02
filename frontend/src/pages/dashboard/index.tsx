@@ -21,10 +21,10 @@ const DashboardPage: React.FC = () => {
   const { runAsync: fetchDocsAllinSearch } = useRequest(
     fetchDocsAllinSearchRequest,
     {
-      manual: true,
       onSuccess: (data: API.SearchResult[]) => {
-        console.log(data);
-        setResults([...data]);
+        if (data) {
+          setResults([...data]);
+        }
       },
     }
   );
@@ -109,7 +109,12 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </div>
                 <div className={styles.resultDownload}>
-                  <Button type="link" icon={<CloudDownloadOutlined />}>
+                  <Button
+                    type="link"
+                    icon={<CloudDownloadOutlined />}
+                    target="blank"
+                    href={`/api/my-intelligence/docs/download/${r.id}`}
+                  >
                     下载
                   </Button>
                 </div>

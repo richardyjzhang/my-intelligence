@@ -1,11 +1,12 @@
+import os
 import datetime
 
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, send_file
 from flask_login import login_required
 from sqlalchemy import text, or_
 from werkzeug.exceptions import BadRequest
 
-from .. import db
+from .. import db, config
 from ..models import Doc, DocTagMap
 from ..store import store_file, del_file
 from ..utils.snowflake import new_id
@@ -138,6 +139,22 @@ def search_docs():
             id2doc[r['id']]['result'] = r['content']
 
     return list(id2doc.values()), 200
+
+
+# 下载某个文档
+@doc.route('/docs/download/<id>', methods=['GET'])
+@login_required
+def download_doc(id):
+    exists = Doc.query.filter_by(id=id).first()
+    if not exists:
+        return Response(status=404)
+
+    root_folder = config['store-root']
+    abs_path = os.path.join(root_folder, exists.path)
+    if not os.path.exists(abs_path):
+        return Response(status=404)
+
+    return send_file(abs_path, as_attachment=True)
 
 
 # 删除某个文档
