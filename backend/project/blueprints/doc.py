@@ -75,7 +75,7 @@ def list_docs():
 def allin_search_docs():
     try:
         request_body = request.get_json()
-        keyword = request_body.get('keywords', '')
+        keyword = request_body.get('keyword', '')
         tagIds = request_body.get('tagIds', None)
     except KeyError:
         raise BadRequest
