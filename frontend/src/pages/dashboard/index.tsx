@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { Button, Card, Divider, Form, Input, Select, Space, Tag } from "antd";
+import {
+  Button,
+  Card,
+  Divider,
+  Form,
+  Input,
+  List,
+  Select,
+  Space,
+  Tag,
+} from "antd";
 import { CloudDownloadOutlined } from "@ant-design/icons";
 import { useRequest } from "ahooks";
 import { fetchTagsRequest, fetchDocsAllinSearchRequest } from "../service";
@@ -68,36 +78,45 @@ const DashboardPage: React.FC = () => {
         </Form>
       </div>
       <div className={styles.searchResultsArea}>
-        {results.map((r) => (
-          <>
-            <Divider />
-            <div key={r.id} className={styles.resultArea}>
-              <div className={styles.resultInfo}>
-                <div className={styles.resultTitle}>{r.name}</div>
-                <div className={styles.resultTagBar}>
-                  {r.tagIds?.map((tagId) => {
-                    const tag: API.Tag = tags?.find(
-                      (t: API.Tag) => t.id === tagId
-                    );
-                    if (!tag) {
-                      return null;
-                    }
-                    return <Tag color={tag.color}>{tag.name}</Tag>;
-                  })}
-                  <Divider type="vertical" />
-                  <div className={styles.resultDescription}>
-                    {r.description || "暂无描述"}
+        <List
+          dataSource={results}
+          pagination={{
+            onChange: (page) => {
+              console.log(page);
+            },
+            pageSize: 5,
+          }}
+          renderItem={(r) => (
+            <>
+              <Divider />
+              <div key={r.id} className={styles.resultArea}>
+                <div className={styles.resultInfo}>
+                  <div className={styles.resultTitle}>{r.name}</div>
+                  <div className={styles.resultTagBar}>
+                    {r.tagIds?.map((tagId) => {
+                      const tag: API.Tag = tags?.find(
+                        (t: API.Tag) => t.id === tagId
+                      );
+                      if (!tag) {
+                        return null;
+                      }
+                      return <Tag color={tag.color}>{tag.name}</Tag>;
+                    })}
+                    <Divider type="vertical" />
+                    <div className={styles.resultDescription}>
+                      {r.description || "暂无描述"}
+                    </div>
                   </div>
                 </div>
+                <div className={styles.resultDownload}>
+                  <Button type="link" icon={<CloudDownloadOutlined />}>
+                    下载
+                  </Button>
+                </div>
               </div>
-              <div className={styles.resultDownload}>
-                <Button type="link" icon={<CloudDownloadOutlined />}>
-                  下载
-                </Button>
-              </div>
-            </div>
-          </>
-        ))}
+            </>
+          )}
+        />
       </div>
     </Card>
   );
