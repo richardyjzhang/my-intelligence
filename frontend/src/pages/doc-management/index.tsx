@@ -313,7 +313,14 @@ const DocManagementPage: React.FC = () => {
           刷新
         </Button>
       </div>
-      <Table rowKey="id" columns={columns} dataSource={docs} />
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={docs}
+        scroll={{
+          y: "calc(100vh - 25rem)",
+        }}
+      />
       <AddEditModal />
     </Card>
   );
