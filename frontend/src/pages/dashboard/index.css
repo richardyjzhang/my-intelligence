@@ -16,8 +16,19 @@
     height: 2.5rem;
 }
 
+
 .searchContent {
+    flex-grow: 7;
+}
+
+.searchTags {
     flex-grow: 1;
+}
+
+.searchTagSelect {
+    flex-grow: 1;
+    height: 2.5rem;
+    align-items: center;
 }
 
 .searchContentInput {
@@ -53,7 +64,3 @@
     display: flex;
     margin-top: 0.5rem;
 }
-
-.resultDescription {}
-
-.resultDownload {}
