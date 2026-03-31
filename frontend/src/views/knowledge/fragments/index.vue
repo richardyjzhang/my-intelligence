@@ -8,16 +8,10 @@ import {
   NInput,
   NSpace,
   NModal,
-  NForm,
-  NFormItem,
   NTag,
-  NSelect,
   useMessage,
   useDialog,
   type DataTableColumns,
-  type FormInst,
-  type FormRules,
-  type SelectOption,
 } from 'naive-ui'
 import {
   SearchOutline,
@@ -26,15 +20,18 @@ import {
   TrashOutline,
   EyeOutline,
 } from '@vicons/ionicons5'
-import { getFragments, createFragment, updateFragment, deleteFragment } from '@/api/fragment'
+import { getFragments, deleteFragment } from '@/api/fragment'
 import type { FragmentInfo } from '@/api/fragment'
-import { getTags } from '@/api/tag'
 import type { TagInfo } from '@/api/tag'
 import { useAuthStore } from '@/stores/auth'
+import { useTagData } from '@/composables/useTagData'
+import TagSelect from '../components/TagSelect.vue'
+import FragmentFormModal from './FragmentFormModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+useTagData()
 
 const isAdmin = computed(() => authStore.isAdmin)
 
@@ -42,8 +39,6 @@ const keyword = ref('')
 const filterTagIds = ref<number[]>([])
 const loading = ref(false)
 const data = ref<FragmentInfo[]>([])
-const tagOptions = ref<SelectOption[]>([])
-const allTags = ref<TagInfo[]>([])
 const pagination = reactive({
   pageSize: 10,
   showSizePicker: true,
@@ -51,24 +46,11 @@ const pagination = reactive({
   prefix: ({ itemCount }: { itemCount: number | undefined }) => `共 ${itemCount ?? 0} 条`,
 })
 
-const showModal = ref(false)
-const isEdit = ref(false)
-const editingId = ref<number | null>(null)
-const formRef = ref<FormInst | null>(null)
-const formModel = reactive({
-  title: '',
-  content: '',
-  tagIds: [] as number[],
-})
-const formSaving = ref(false)
+const showFormModal = ref(false)
+const editData = ref<FragmentInfo | null>(null)
 
 const showDetailModal = ref(false)
 const detailData = ref<FragmentInfo | null>(null)
-
-const formRules: FormRules = {
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入内容', trigger: 'blur' }],
-}
 
 function renderTags(tags: TagInfo[]) {
   if (!tags || tags.length === 0) return h('span', { style: { color: '#c9cdd4' } }, '—')
@@ -173,21 +155,6 @@ const columns = computed<DataTableColumns<FragmentInfo>>(() => {
   return cols
 })
 
-async function fetchTags() {
-  try {
-    const res = await getTags()
-    if (res.code === 200) {
-      allTags.value = res.data
-      tagOptions.value = res.data.map((tag) => ({
-        label: tag.name,
-        value: tag.id,
-      }))
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 async function fetchData() {
   loading.value = true
   try {
@@ -207,26 +174,14 @@ function handleSearch() {
   fetchData()
 }
 
-function resetForm() {
-  formModel.title = ''
-  formModel.content = ''
-  formModel.tagIds = []
-}
-
 function handleCreate() {
-  resetForm()
-  isEdit.value = false
-  editingId.value = null
-  showModal.value = true
+  editData.value = null
+  showFormModal.value = true
 }
 
 function handleEdit(row: FragmentInfo) {
-  isEdit.value = true
-  editingId.value = row.id
-  formModel.title = row.title
-  formModel.content = row.content
-  formModel.tagIds = row.tags?.map((t) => t.id) || []
-  showModal.value = true
+  editData.value = row
+  showFormModal.value = true
 }
 
 function handleDetail(row: FragmentInfo) {
@@ -254,44 +209,7 @@ function handleDelete(row: FragmentInfo) {
   })
 }
 
-async function handleSubmit() {
-  try {
-    await formRef.value?.validate()
-  } catch {
-    return
-  }
-
-  formSaving.value = true
-  try {
-    const params = {
-      title: formModel.title,
-      content: formModel.content,
-      tagIds: formModel.tagIds,
-    }
-    if (isEdit.value && editingId.value !== null) {
-      const res = await updateFragment(editingId.value, params)
-      if (res.code === 200) {
-        message.success('修改成功')
-        showModal.value = false
-        fetchData()
-      }
-    } else {
-      const res = await createFragment(params)
-      if (res.code === 200) {
-        message.success('创建成功')
-        showModal.value = false
-        fetchData()
-      }
-    }
-  } catch {
-    message.error(isEdit.value ? '修改失败' : '创建失败')
-  } finally {
-    formSaving.value = false
-  }
-}
-
 onMounted(() => {
-  fetchTags()
   fetchData()
 })
 </script>
@@ -308,46 +226,11 @@ onMounted(() => {
           @clear="handleSearch"
           @keydown.enter="handleSearch"
         />
-        <NSelect
-          v-model:value="filterTagIds"
-          :options="tagOptions"
+        <TagSelect
+          v-model="filterTagIds"
           placeholder="按标签筛选"
-          multiple
-          clearable
           style="min-width: 180px; max-width: 600px"
           @update:value="handleSearch"
-          :render-tag="({ option, handleClose }: any) => {
-            const tag = allTags.find((t) => t.id === option.value)
-            return h(
-              NTag,
-              {
-                closable: true,
-                onClose: handleClose,
-                size: 'tiny',
-                round: true,
-                style: { fontSize: '12px' },
-                color: tag
-                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                  : undefined,
-              },
-              { default: () => option.label },
-            )
-          }"
-          :render-label="(option: any) => {
-            const tag = allTags.find((t) => t.id === option.value)
-            return h(
-              NTag,
-              {
-                size: 'small',
-                round: true,
-                style: { fontSize: '12px' },
-                color: tag
-                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                  : undefined,
-              },
-              { default: () => option.label },
-            )
-          }"
         />
         <NButton type="primary" @click="handleSearch">
           <template #icon><NIcon :component="SearchOutline" /></template>
@@ -368,78 +251,11 @@ onMounted(() => {
       :row-key="(row: FragmentInfo) => row.id"
     />
 
-    <!-- 新增 / 编辑弹窗 -->
-    <NModal
-      v-model:show="showModal"
-      preset="card"
-      :title="isEdit ? '编辑碎片知识' : '新增碎片知识'"
-      style="width: 640px"
-      :mask-closable="false"
-    >
-      <NForm
-        ref="formRef"
-        :model="formModel"
-        :rules="formRules"
-        label-placement="left"
-        label-width="80"
-      >
-        <NFormItem label="标题" path="title">
-          <NInput v-model:value="formModel.title" placeholder="请输入标题" />
-        </NFormItem>
-        <NFormItem label="内容" path="content">
-          <NInput
-            v-model:value="formModel.content"
-            type="textarea"
-            placeholder="请输入内容"
-            :autosize="{ minRows: 4, maxRows: 12 }"
-          />
-        </NFormItem>
-        <NFormItem label="标签" path="tagIds">
-          <NSelect
-            v-model:value="formModel.tagIds"
-            :options="tagOptions"
-            multiple
-            placeholder="选择标签（可选）"
-            :render-tag="({ option, handleClose }: any) => {
-              const tag = allTags.find((t) => t.id === option.value)
-              return h(
-                NTag,
-                {
-                  closable: true,
-                  onClose: handleClose,
-                  size: 'tiny',
-                  round: true,
-                  color: tag
-                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                    : undefined,
-                },
-                { default: () => option.label },
-              )
-            }"
-            :render-label="(option: any) => {
-              const tag = allTags.find((t) => t.id === option.value)
-              return h(
-                NTag,
-                {
-                  size: 'small',
-                  round: true,
-                  color: tag
-                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                    : undefined,
-                },
-                { default: () => option.label },
-              )
-            }"
-          />
-        </NFormItem>
-      </NForm>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="showModal = false">取消</NButton>
-          <NButton type="primary" :loading="formSaving" @click="handleSubmit">确定</NButton>
-        </NSpace>
-      </template>
-    </NModal>
+    <FragmentFormModal
+      v-model:show="showFormModal"
+      :edit-data="editData"
+      @saved="fetchData"
+    />
 
     <!-- 详情弹窗 -->
     <NModal

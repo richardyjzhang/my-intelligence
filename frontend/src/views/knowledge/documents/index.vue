@@ -7,20 +7,10 @@ import {
   NIcon,
   NInput,
   NSpace,
-  NModal,
-  NForm,
-  NFormItem,
   NTag,
-  NDatePicker,
-  NSelect,
-  NUpload,
   useMessage,
   useDialog,
   type DataTableColumns,
-  type FormInst,
-  type FormRules,
-  type SelectOption,
-  type UploadFileInfo,
 } from 'naive-ui'
 import {
   SearchOutline,
@@ -32,21 +22,23 @@ import {
 } from '@vicons/ionicons5'
 import {
   getDocuments,
-  createDocument,
-  updateDocument,
   deleteDocument,
   getPreviewUrl,
   getDownloadUrl,
   STATUS_MAP,
 } from '@/api/document'
 import type { DocumentInfo } from '@/api/document'
-import { getTags } from '@/api/tag'
 import type { TagInfo } from '@/api/tag'
 import { useAuthStore } from '@/stores/auth'
+import { useTagData } from '@/composables/useTagData'
+import TagSelect from '../components/TagSelect.vue'
+import DocumentFormModal from './DocumentFormModal.vue'
+import DocumentPreviewModal from './DocumentPreviewModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+const { allTags } = useTagData()
 
 const isAdmin = computed(() => authStore.isAdmin)
 
@@ -54,8 +46,6 @@ const keyword = ref('')
 const filterTagIds = ref<number[]>([])
 const loading = ref(false)
 const data = ref<DocumentInfo[]>([])
-const tagOptions = ref<SelectOption[]>([])
-const allTags = ref<TagInfo[]>([])
 const pagination = reactive({
   pageSize: 10,
   showSizePicker: true,
@@ -63,28 +53,12 @@ const pagination = reactive({
   prefix: ({ itemCount }: { itemCount: number | undefined }) => `共 ${itemCount ?? 0} 条`,
 })
 
-const showModal = ref(false)
-const isEdit = ref(false)
-const editingId = ref<number | null>(null)
-const formRef = ref<FormInst | null>(null)
-const formModel = reactive({
-  title: '',
-  code: '',
-  publishDate: null as number | null,
-  url: '',
-  remark: '',
-  tagIds: [] as number[],
-})
-const fileList = ref<UploadFileInfo[]>([])
-const formSaving = ref(false)
+const showFormModal = ref(false)
+const editData = ref<DocumentInfo | null>(null)
 
 const showPreviewModal = ref(false)
 const previewUrl = ref('')
 const previewTitle = ref('')
-
-const formRules: FormRules = {
-  title: [{ required: true, message: '请输入名称', trigger: 'blur' }],
-}
 
 function renderTags(tags: TagInfo[]) {
   if (!tags || tags.length === 0) return h('span', { style: { color: '#c9cdd4' } }, '—')
@@ -254,25 +228,13 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
   return cols
 })
 
-async function fetchTags() {
-  try {
-    const res = await getTags()
-    if (res.code === 200) {
-      allTags.value = res.data
-      tagOptions.value = res.data.map((tag) => ({
-        label: tag.name,
-        value: tag.id,
-      }))
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getDocuments(keyword.value || undefined, filterTagIds.value.length > 0 ? filterTagIds.value : undefined)
+    const res = await getDocuments(
+      keyword.value || undefined,
+      filterTagIds.value.length > 0 ? filterTagIds.value : undefined,
+    )
     if (res.code === 200) {
       data.value = res.data
     }
@@ -285,23 +247,6 @@ function handleSearch() {
   fetchData()
 }
 
-function resetForm() {
-  formModel.title = ''
-  formModel.code = ''
-  formModel.publishDate = null
-  formModel.url = ''
-  formModel.remark = ''
-  formModel.tagIds = []
-  fileList.value = []
-}
-
-function handleFileChange(files: UploadFileInfo[]) {
-  const first = files[0]
-  if (first && !formModel.title) {
-    formModel.title = first.name.replace(/\.[^.]+$/, '')
-  }
-}
-
 function handlePreview(row: DocumentInfo) {
   previewTitle.value = row.title
   previewUrl.value = getPreviewUrl(row.id)
@@ -309,22 +254,13 @@ function handlePreview(row: DocumentInfo) {
 }
 
 function handleCreate() {
-  resetForm()
-  isEdit.value = false
-  editingId.value = null
-  showModal.value = true
+  editData.value = null
+  showFormModal.value = true
 }
 
 function handleEdit(row: DocumentInfo) {
-  isEdit.value = true
-  editingId.value = row.id
-  formModel.title = row.title
-  formModel.code = row.code || ''
-  formModel.publishDate = row.publishDate ? new Date(row.publishDate).getTime() : null
-  formModel.url = row.url || ''
-  formModel.remark = row.remark || ''
-  formModel.tagIds = row.tags?.map((t) => t.id) || []
-  showModal.value = true
+  editData.value = row
+  showFormModal.value = true
 }
 
 function handleDelete(row: DocumentInfo) {
@@ -347,69 +283,7 @@ function handleDelete(row: DocumentInfo) {
   })
 }
 
-function buildFormData(includeFile: boolean): FormData {
-  const fd = new FormData()
-  fd.append('title', formModel.title)
-  if (formModel.code) fd.append('code', formModel.code)
-  if (formModel.publishDate) {
-    const d = new Date(formModel.publishDate)
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    fd.append('publishDate', dateStr)
-  }
-  if (formModel.url) fd.append('url', formModel.url)
-  if (formModel.remark) fd.append('remark', formModel.remark)
-  formModel.tagIds.forEach((id) => fd.append('tagIds', String(id)))
-
-  if (includeFile) {
-    const firstFile = fileList.value[0]
-    if (firstFile?.file) {
-      fd.append('file', firstFile.file)
-    }
-  }
-
-  return fd
-}
-
-async function handleSubmit() {
-  try {
-    await formRef.value?.validate()
-  } catch {
-    return
-  }
-
-  if (!isEdit.value && fileList.value.length === 0) {
-    message.warning('请选择PDF文件')
-    return
-  }
-
-  formSaving.value = true
-  try {
-    if (isEdit.value && editingId.value !== null) {
-      const fd = buildFormData(false)
-      const res = await updateDocument(editingId.value, fd)
-      if (res.code === 200) {
-        message.success('修改成功')
-        showModal.value = false
-        fetchData()
-      }
-    } else {
-      const fd = buildFormData(true)
-      const res = await createDocument(fd)
-      if (res.code === 200) {
-        message.success('创建成功')
-        showModal.value = false
-        fetchData()
-      }
-    }
-  } catch {
-    message.error(isEdit.value ? '修改失败' : '创建失败')
-  } finally {
-    formSaving.value = false
-  }
-}
-
 onMounted(() => {
-  fetchTags()
   fetchData()
 })
 </script>
@@ -426,46 +300,11 @@ onMounted(() => {
           @clear="handleSearch"
           @keydown.enter="handleSearch"
         />
-        <NSelect
-          v-model:value="filterTagIds"
-          :options="tagOptions"
+        <TagSelect
+          v-model="filterTagIds"
           placeholder="按标签筛选"
-          multiple
-          clearable
           style="min-width: 180px; max-width: 600px"
           @update:value="handleSearch"
-          :render-tag="({ option, handleClose }: any) => {
-            const tag = allTags.find((t) => t.id === option.value)
-            return h(
-              NTag,
-              {
-                closable: true,
-                onClose: handleClose,
-                size: 'tiny',
-                round: true,
-                style: { fontSize: '12px' },
-                color: tag
-                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                  : undefined,
-              },
-              { default: () => option.label },
-            )
-          }"
-          :render-label="(option: any) => {
-            const tag = allTags.find((t) => t.id === option.value)
-            return h(
-              NTag,
-              {
-                size: 'small',
-                round: true,
-                style: { fontSize: '12px' },
-                color: tag
-                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                  : undefined,
-              },
-              { default: () => option.label },
-            )
-          }"
         />
         <NButton type="primary" @click="handleSearch">
           <template #icon><NIcon :component="SearchOutline" /></template>
@@ -486,116 +325,16 @@ onMounted(() => {
       :row-key="(row: DocumentInfo) => row.id"
     />
 
-    <!-- 新增 / 编辑弹窗 -->
-    <NModal
-      v-model:show="showModal"
-      preset="card"
-      :title="isEdit ? '编辑文档' : '新增文档'"
-      style="width: 680px"
-      :mask-closable="false"
-    >
-      <NForm
-        ref="formRef"
-        :model="formModel"
-        :rules="formRules"
-        label-placement="left"
-        label-width="80"
-      >
-        <NFormItem label="名称" path="title">
-          <NInput v-model:value="formModel.title" placeholder="请输入名称" />
-        </NFormItem>
-        <NFormItem label="编号" path="code">
-          <NInput v-model:value="formModel.code" placeholder="请输入编号（可选）" />
-        </NFormItem>
-        <NFormItem label="发布时间" path="publishDate">
-          <NDatePicker
-            v-model:value="formModel.publishDate"
-            type="date"
-            placeholder="选择发布时间"
-            clearable
-            style="width: 100%"
-          />
-        </NFormItem>
-        <NFormItem label="在线地址" path="url">
-          <NInput v-model:value="formModel.url" placeholder="请输入在线文档地址（可选）" />
-        </NFormItem>
-        <NFormItem label="标签" path="tagIds">
-          <NSelect
-            v-model:value="formModel.tagIds"
-            :options="tagOptions"
-            multiple
-            placeholder="选择标签（可选）"
-            :render-tag="({ option, handleClose }: any) => {
-              const tag = allTags.find((t) => t.id === option.value)
-              return h(
-                NTag,
-                {
-                  closable: true,
-                  onClose: handleClose,
-                  size: 'tiny',
-                  round: true,
-                  color: tag
-                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                    : undefined,
-                },
-                { default: () => option.label },
-              )
-            }"
-            :render-label="(option: any) => {
-              const tag = allTags.find((t) => t.id === option.value)
-              return h(
-                NTag,
-                {
-                  size: 'small',
-                  round: true,
-                  color: tag
-                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                    : undefined,
-                },
-                { default: () => option.label },
-              )
-            }"
-          />
-        </NFormItem>
-        <NFormItem label="备注" path="remark">
-          <NInput
-            v-model:value="formModel.remark"
-            type="textarea"
-            placeholder="请输入备注（可选）"
-            :autosize="{ minRows: 2, maxRows: 6 }"
-          />
-        </NFormItem>
-        <NFormItem v-if="!isEdit" label="PDF文件" path="file">
-          <NUpload
-            v-model:file-list="fileList"
-            accept=".pdf"
-            :max="1"
-            :default-upload="false"
-            @update:file-list="handleFileChange"
-          >
-            <NButton>选择PDF文件</NButton>
-          </NUpload>
-        </NFormItem>
-      </NForm>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="showModal = false">取消</NButton>
-          <NButton type="primary" :loading="formSaving" @click="handleSubmit">确定</NButton>
-        </NSpace>
-      </template>
-    </NModal>
+    <DocumentFormModal
+      v-model:show="showFormModal"
+      :edit-data="editData"
+      @saved="fetchData"
+    />
 
-    <!-- PDF 预览弹窗 -->
-    <NModal
+    <DocumentPreviewModal
       v-model:show="showPreviewModal"
-      preset="card"
       :title="previewTitle"
-      style="width: 90vw; height: 90vh"
-    >
-      <iframe
-        :src="previewUrl"
-        style="width: 100%; height: calc(90vh - 120px); border: none; border-radius: 4px"
-      />
-    </NModal>
+      :url="previewUrl"
+    />
   </NCard>
 </template>
