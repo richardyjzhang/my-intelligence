@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, watch, type Component } from 'vue'
+import { computed, h, ref, watch, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
@@ -9,12 +9,24 @@ import {
   NMenu,
   NIcon,
   NDropdown,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
+  NButton,
+  useMessage,
   type MenuOption,
+  type FormRules,
+  type FormInst,
 } from 'naive-ui'
-import { LogOutOutline, PersonOutline, CloseOutline } from '@vicons/ionicons5'
+import { LogOutOutline, PersonOutline, CloseOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
 import { useTabsStore } from '@/stores/tabs'
 import { useAuthStore } from '@/stores/auth'
+import { changeMyPassword } from '@/api/auth'
+import { hashPassword } from '@/utils/crypto'
+
+const message = useMessage()
 
 const router = useRouter()
 const route = useRoute()
@@ -96,6 +108,11 @@ function handleTabMousedown(e: MouseEvent, path: string) {
 
 const userDropdownOptions = [
   {
+    label: '修改密码',
+    key: 'changePassword',
+    icon: renderIcon(LockClosedOutline),
+  },
+  {
     label: '退出登录',
     key: 'logout',
     icon: renderIcon(LogOutOutline),
@@ -106,10 +123,68 @@ async function handleUserDropdown(key: string) {
   if (key === 'logout') {
     await authStore.logout()
     void router.push('/login')
+  } else if (key === 'changePassword') {
+    showPasswordModal.value = true
   }
 }
 
 const displayName = computed(() => authStore.user?.nickname || authStore.user?.username || '用户')
+
+const showPasswordModal = ref(false)
+const passwordFormRef = ref<FormInst | null>(null)
+const passwordLoading = ref(false)
+const passwordForm = ref({
+  newPassword: '',
+  confirmPassword: '',
+})
+
+const passwordRules: FormRules = {
+  newPassword: { required: true, message: '请输入新密码', trigger: 'blur' },
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (_rule, value: string) => {
+        if (value !== passwordForm.value.newPassword) {
+          return new Error('两次输入的密码不一致')
+        }
+        return true
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
+function resetPasswordForm() {
+  passwordForm.value = { newPassword: '', confirmPassword: '' }
+  showPasswordModal.value = false
+}
+
+async function handleChangePassword() {
+  try {
+    await passwordFormRef.value?.validate()
+  } catch {
+    return
+  }
+
+  const username = authStore.user?.username
+  if (!username) return
+
+  passwordLoading.value = true
+  try {
+    const hashedNew = await hashPassword(username, passwordForm.value.newPassword)
+    const res = await changeMyPassword(hashedNew)
+    if (res.code === 200) {
+      message.success('密码修改成功')
+      resetPasswordForm()
+    } else {
+      message.error(res.message || '密码修改失败')
+    }
+  } catch {
+    message.error('密码修改失败')
+  } finally {
+    passwordLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -184,4 +259,26 @@ const displayName = computed(() => authStore.user?.nickname || authStore.user?.u
       </NLayout>
     </NLayout>
   </NLayout>
+
+  <NModal
+    v-model:show="showPasswordModal"
+    preset="card"
+    title="修改密码"
+    :style="{ width: '420px' }"
+    :mask-closable="false"
+    @after-leave="resetPasswordForm"
+  >
+    <NForm ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-placement="left" label-width="100">
+      <NFormItem label="新密码" path="newPassword">
+        <NInput v-model:value="passwordForm.newPassword" type="password" show-password-on="click" placeholder="请输入新密码" />
+      </NFormItem>
+      <NFormItem label="确认新密码" path="confirmPassword">
+        <NInput v-model:value="passwordForm.confirmPassword" type="password" show-password-on="click" placeholder="请再次输入新密码" />
+      </NFormItem>
+      <div style="display: flex; justify-content: flex-end; gap: 12px">
+        <NButton @click="resetPasswordForm">取消</NButton>
+        <NButton type="primary" :loading="passwordLoading" @click="handleChangePassword">确认</NButton>
+      </div>
+    </NForm>
+  </NModal>
 </template>

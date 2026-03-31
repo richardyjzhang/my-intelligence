@@ -41,3 +41,7 @@ export function logout(): Promise<Result<void>> {
 export function getMe(): Promise<Result<UserInfo>> {
   return request.get('/auth/me')
 }
+
+export function changeMyPassword(newPassword: string): Promise<Result<void>> {
+  return request.put('/auth/password', { newPassword })
+}
