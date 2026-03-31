@@ -1,5 +1,6 @@
 package com.zhangrichard.myintelligence.controller;
 
+import cn.dev33.satoken.annotation.SaCheckRole;
 import com.zhangrichard.myintelligence.common.Result;
 import com.zhangrichard.myintelligence.entity.User;
 import com.zhangrichard.myintelligence.service.UserService;
@@ -10,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/users")
+@SaCheckRole("admin")
 public class UserController {
 
     @Autowired
