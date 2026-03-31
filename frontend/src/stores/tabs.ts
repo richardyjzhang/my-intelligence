@@ -1,4 +1,4 @@
-import { ref, type Component } from 'vue'
+import { markRaw, ref, type Component } from 'vue'
 import { defineStore } from 'pinia'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
 
@@ -11,7 +11,7 @@ export interface TabItem {
 function findIconByPath(path: string): Component | undefined {
   function search(items: MenuItemConfig[]): Component | undefined {
     for (const item of items) {
-      if (item.key === path) return item.icon
+      if (item.key === path) return markRaw(item.icon)
       if (item.children) {
         const found = search(item.children)
         if (found) return found
