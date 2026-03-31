@@ -69,6 +69,10 @@ export function deleteDocument(id: number): Promise<Result<void>> {
   return request.delete(`/documents/${id}`)
 }
 
+export function reparseDocument(id: number): Promise<Result<DocumentInfo>> {
+  return request.post(`/documents/${id}/reparse`)
+}
+
 export function getPreviewUrl(id: number): string {
   return `/api/documents/${id}/preview`
 }

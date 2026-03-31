@@ -36,6 +36,12 @@ def phase1_consume_parse_queue():
         file_path = task["filePath"]
         logger.info("阶段1: 处理解析任务 documentId=%s", document_id)
 
+        try:
+            es_service.delete_document(document_id)
+            chroma_service.delete_document(document_id)
+        except Exception as e:
+            logger.warning("清理旧数据时出错(可忽略): documentId=%s, error=%s", document_id, e)
+
         file_name = task.get("fileName", "")
         task_id = mineru_service.submit_task(file_path, file_name)
         if task_id is None:

@@ -19,10 +19,12 @@ import {
   TrashOutline,
   DownloadOutline,
   EyeOutline,
+  RefreshOutline,
 } from '@vicons/ionicons5'
 import {
   getDocuments,
   deleteDocument,
+  reparseDocument,
   getPreviewUrl,
   getDownloadUrl,
   STATUS_MAP,
@@ -165,7 +167,7 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: isAdmin.value ? 320 : 160,
+      width: isAdmin.value ? 400 : 160,
       render(row) {
         const buttons: ReturnType<typeof h>[] = [
           h(
@@ -195,6 +197,18 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
 
         if (isAdmin.value) {
           buttons.push(
+            h(
+              NButton,
+              {
+                size: 'small',
+                text: true,
+                type: 'warning',
+                disabled: row.status !== -1,
+                onClick: () => handleReparse(row),
+                style: { marginLeft: '12px' },
+              },
+              { default: () => '重识别', icon: () => h(NIcon, { component: RefreshOutline }) },
+            ),
             h(
               NButton,
               {
@@ -261,6 +275,26 @@ function handleCreate() {
 function handleEdit(row: DocumentInfo) {
   editData.value = row
   showFormModal.value = true
+}
+
+function handleReparse(row: DocumentInfo) {
+  dialog.warning({
+    title: '确认重识别',
+    content: `确定要重新识别文档「${row.title}」吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const res = await reparseDocument(row.id)
+        if (res.code === 200) {
+          message.success('已重新提交识别任务')
+          fetchData()
+        }
+      } catch {
+        message.error('操作失败')
+      }
+    },
+  })
 }
 
 function handleDelete(row: DocumentInfo) {

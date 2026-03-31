@@ -19,4 +19,6 @@ public interface DocumentService {
     void deleteDocument(Long id);
 
     Resource downloadDocument(Long id);
+
+    Document reparseDocument(Long id);
 }

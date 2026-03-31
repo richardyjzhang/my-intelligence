@@ -104,6 +104,22 @@ public class DocumentServiceImpl implements DocumentService {
         return fileService.loadAsResource(document.getFilePath());
     }
 
+    @Override
+    @Transactional
+    public Document reparseDocument(Long id) {
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("文档不存在"));
+
+        if (document.getStatus() != -1) {
+            throw new IllegalStateException("仅处理失败的文档可重新识别");
+        }
+
+        document.setStatus(1);
+        Document saved = documentRepository.save(document);
+        documentParseService.submitParseTask(saved);
+        return saved;
+    }
+
     private Set<Tag> resolveTagSet(List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
             return new HashSet<>();

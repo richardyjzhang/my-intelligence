@@ -83,6 +83,12 @@ public class DocumentController {
     }
 
     @SaCheckRole("admin")
+    @PostMapping("/{id}/reparse")
+    public Result<Document> reparse(@PathVariable Long id) {
+        return Result.ok(documentService.reparseDocument(id));
+    }
+
+    @SaCheckRole("admin")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         documentService.deleteDocument(id);
