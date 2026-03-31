@@ -18,38 +18,14 @@ def get_client() -> Elasticsearch:
     return _client
 
 
-def ensure_index():
-    """确保索引存在，不存在则创建"""
+def check_index():
+    """检查索引是否存在，不存在则抛出异常"""
     client = get_client()
-    if client.indices.exists(index=INDEX_NAME):
-        return
-
-    mapping = {
-        "settings": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0,
-        },
-        "mappings": {
-            "properties": {
-                "documentId": {"type": "long"},
-                "title": {
-                    "type": "text",
-                    "analyzer": "ik_max_word",
-                    "search_analyzer": "ik_smart",
-                },
-                "content": {
-                    "type": "text",
-                    "analyzer": "ik_max_word",
-                    "search_analyzer": "ik_smart",
-                },
-                "tags": {"type": "keyword"},
-                "fileName": {"type": "keyword"},
-            }
-        },
-    }
-
-    client.indices.create(index=INDEX_NAME, body=mapping)
-    logger.info("ES 索引 '%s' 已创建", INDEX_NAME)
+    if not client.indices.exists(index=INDEX_NAME):
+        raise RuntimeError(
+            f"ES 索引 '{INDEX_NAME}' 不存在，请先手动创建。"
+            f"参考 docs/elasticsearch-design.md 中的创建索引命令。"
+        )
 
 
 def index_document(document_id: int, title: str, content: str,

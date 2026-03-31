@@ -146,7 +146,7 @@ def poll_loop():
     logger.info("ES: %s", config.ES_HOST)
     logger.info("ChromaDB: %s", config.CHROMA_PERSIST_DIR)
 
-    es_service.ensure_index()
+    es_service.check_index()
 
     while True:
         try:
