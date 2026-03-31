@@ -367,24 +367,36 @@ onMounted(() => {
             :options="tagOptions"
             multiple
             placeholder="选择标签（可选）"
-            :render-tag="({ option, handleClose }: any) =>
-              h(
+            :render-tag="({ option, handleClose }: any) => {
+              const tag = allTags.find((t) => t.id === option.value)
+              return h(
                 NTag,
                 {
                   closable: true,
                   onClose: handleClose,
-                  size: 'small',
+                  size: 'tiny',
                   round: true,
-                  color: (() => {
-                    const tag = allTags.find((t) => t.id === option.value)
-                    return tag
-                      ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
-                      : undefined
-                  })(),
+                  color: tag
+                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
+                    : undefined,
                 },
                 { default: () => option.label },
               )
-            "
+            }"
+            :render-label="(option: any) => {
+              const tag = allTags.find((t) => t.id === option.value)
+              return h(
+                NTag,
+                {
+                  size: 'small',
+                  round: true,
+                  color: tag
+                    ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
+                    : undefined,
+                },
+                { default: () => option.label },
+              )
+            }"
           />
         </NFormItem>
       </NForm>
