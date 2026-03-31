@@ -17,26 +17,14 @@ export interface UserUpdateParams {
   admin?: boolean
 }
 
-export interface PageResult<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
 interface Result<T> {
   code: number
   message: string
   data: T
 }
 
-export function getUsers(params: {
-  keyword?: string
-  page?: number
-  size?: number
-}): Promise<Result<PageResult<UserInfo>>> {
-  return request.get('/users', { params })
+export function getUsers(keyword?: string): Promise<Result<UserInfo[]>> {
+  return request.get('/users', { params: keyword ? { keyword } : {} })
 }
 
 export function getUser(id: number): Promise<Result<UserInfo>> {

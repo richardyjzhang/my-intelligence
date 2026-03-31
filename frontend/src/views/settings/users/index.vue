@@ -30,12 +30,10 @@ const keyword = ref('')
 const loading = ref(false)
 const data = ref<UserInfo[]>([])
 const pagination = reactive({
-  page: 1,
   pageSize: 10,
-  itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50],
-  prefix: ({ itemCount }: { itemCount: number }) => `共 ${itemCount} 条`,
+  prefix: ({ itemCount }: { itemCount: number | undefined }) => `共 ${itemCount ?? 0} 条`,
 })
 
 const showModal = ref(false)
@@ -156,33 +154,16 @@ const columns: DataTableColumns<UserInfo> = [
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getUsers({
-      keyword: keyword.value || undefined,
-      page: pagination.page - 1,
-      size: pagination.pageSize,
-    })
+    const res = await getUsers(keyword.value || undefined)
     if (res.code === 200) {
-      data.value = res.data.content
-      pagination.itemCount = res.data.totalElements
+      data.value = res.data
     }
   } finally {
     loading.value = false
   }
 }
 
-function handlePageChange(page: number) {
-  pagination.page = page
-  fetchData()
-}
-
-function handlePageSizeChange(pageSize: number) {
-  pagination.pageSize = pageSize
-  pagination.page = 1
-  fetchData()
-}
-
 function handleSearch() {
-  pagination.page = 1
   fetchData()
 }
 
@@ -332,10 +313,7 @@ onMounted(fetchData)
       :data="data"
       :loading="loading"
       :pagination="pagination"
-      :remote="true"
       :row-key="(row: UserInfo) => row.id"
-      @update:page="handlePageChange"
-      @update:page-size="handlePageSizeChange"
     />
 
     <NModal

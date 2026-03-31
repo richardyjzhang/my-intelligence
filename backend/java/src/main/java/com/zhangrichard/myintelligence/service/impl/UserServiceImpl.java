@@ -4,12 +4,11 @@ import com.zhangrichard.myintelligence.entity.User;
 import com.zhangrichard.myintelligence.repository.UserRepository;
 import com.zhangrichard.myintelligence.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -21,9 +20,8 @@ public class UserServiceImpl implements UserService {
     private BCryptPasswordEncoder passwordEncoder;
 
     @Override
-    public Page<User> listUsers(String keyword, int page, int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
-        return userRepository.searchByKeyword(keyword, pageable);
+    public List<User> listUsers(String keyword) {
+        return userRepository.searchByKeyword(keyword);
     }
 
     @Override
