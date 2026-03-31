@@ -20,8 +20,8 @@ public class FragmentController {
     @GetMapping
     public Result<List<Fragment>> list(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long tagId) {
-        return Result.ok(fragmentService.listFragments(keyword, tagId));
+            @RequestParam(required = false) List<Long> tagIds) {
+        return Result.ok(fragmentService.listFragments(keyword, tagIds));
     }
 
     @GetMapping("/{id}")

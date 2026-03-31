@@ -37,8 +37,8 @@ public class DocumentServiceImpl implements DocumentService {
     private FileService fileService;
 
     @Override
-    public List<Document> listDocuments(String keyword, Long tagId) {
-        return documentRepository.searchByKeywordAndTag(keyword, tagId);
+    public List<Document> listDocuments(String keyword, List<Long> tagIds) {
+        return documentRepository.searchByKeywordAndTags(keyword, tagIds);
     }
 
     @Override

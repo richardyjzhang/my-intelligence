@@ -39,7 +39,7 @@ const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAdmin)
 
 const keyword = ref('')
-const filterTagId = ref<number | null>(null)
+const filterTagIds = ref<number[]>([])
 const loading = ref(false)
 const data = ref<FragmentInfo[]>([])
 const tagOptions = ref<SelectOption[]>([])
@@ -193,7 +193,7 @@ async function fetchData() {
   try {
     const res = await getFragments(
       keyword.value || undefined,
-      filterTagId.value || undefined,
+      filterTagIds.value.length > 0 ? filterTagIds.value : undefined,
     )
     if (res.code === 200) {
       data.value = res.data
@@ -309,12 +309,45 @@ onMounted(() => {
           @keydown.enter="handleSearch"
         />
         <NSelect
-          v-model:value="filterTagId"
+          v-model:value="filterTagIds"
           :options="tagOptions"
           placeholder="按标签筛选"
+          multiple
           clearable
-          style="width: 180px"
+          style="min-width: 180px; max-width: 600px"
           @update:value="handleSearch"
+          :render-tag="({ option, handleClose }: any) => {
+            const tag = allTags.find((t) => t.id === option.value)
+            return h(
+              NTag,
+              {
+                closable: true,
+                onClose: handleClose,
+                size: 'tiny',
+                round: true,
+                style: { fontSize: '12px' },
+                color: tag
+                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
+                  : undefined,
+              },
+              { default: () => option.label },
+            )
+          }"
+          :render-label="(option: any) => {
+            const tag = allTags.find((t) => t.id === option.value)
+            return h(
+              NTag,
+              {
+                size: 'small',
+                round: true,
+                style: { fontSize: '12px' },
+                color: tag
+                  ? { color: tag.color + '1A', textColor: tag.color, borderColor: tag.color }
+                  : undefined,
+              },
+              { default: () => option.label },
+            )
+          }"
         />
         <NButton type="primary" @click="handleSearch">
           <template #icon><NIcon :component="SearchOutline" /></template>

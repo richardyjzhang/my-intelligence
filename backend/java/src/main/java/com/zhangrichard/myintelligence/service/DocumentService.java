@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface DocumentService {
 
-    List<Document> listDocuments(String keyword, Long tagId);
+    List<Document> listDocuments(String keyword, List<Long> tagIds);
 
     Document getDocumentById(Long id);
 

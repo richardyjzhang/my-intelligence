@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface FragmentService {
 
-    List<Fragment> listFragments(String keyword, Long tagId);
+    List<Fragment> listFragments(String keyword, List<Long> tagIds);
 
     Fragment getFragmentById(Long id);
 

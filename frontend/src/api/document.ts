@@ -40,10 +40,10 @@ export const STATUS_MAP: Record<number, { label: string; type: 'warning' | 'info
   3: { label: '处理完成', type: 'success' },
 }
 
-export function getDocuments(keyword?: string, tagId?: number): Promise<Result<DocumentInfo[]>> {
-  const params: Record<string, string | number> = {}
+export function getDocuments(keyword?: string, tagIds?: number[]): Promise<Result<DocumentInfo[]>> {
+  const params: Record<string, any> = {}
   if (keyword) params.keyword = keyword
-  if (tagId) params.tagId = tagId
+  if (tagIds && tagIds.length > 0) params.tagIds = tagIds.join(',')
   return request.get('/documents', { params })
 }
 

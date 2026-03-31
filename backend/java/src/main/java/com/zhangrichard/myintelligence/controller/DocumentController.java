@@ -28,8 +28,8 @@ public class DocumentController {
     @GetMapping
     public Result<List<Document>> list(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long tagId) {
-        return Result.ok(documentService.listDocuments(keyword, tagId));
+            @RequestParam(required = false) List<Long> tagIds) {
+        return Result.ok(documentService.listDocuments(keyword, tagIds));
     }
 
     @GetMapping("/{id}")

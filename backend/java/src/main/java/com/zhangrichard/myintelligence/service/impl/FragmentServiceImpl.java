@@ -28,8 +28,8 @@ public class FragmentServiceImpl implements FragmentService {
     private AuthService authService;
 
     @Override
-    public List<Fragment> listFragments(String keyword, Long tagId) {
-        return fragmentRepository.searchByKeywordAndTag(keyword, tagId);
+    public List<Fragment> listFragments(String keyword, List<Long> tagIds) {
+        return fragmentRepository.searchByKeywordAndTags(keyword, tagIds);
     }
 
     @Override
