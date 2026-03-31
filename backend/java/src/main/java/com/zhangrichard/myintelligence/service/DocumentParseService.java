@@ -6,5 +6,7 @@ public interface DocumentParseService {
 
     void submitParseTask(Document document);
 
+    void submitDeleteTask(Long documentId);
+
     void startStatusListener();
 }

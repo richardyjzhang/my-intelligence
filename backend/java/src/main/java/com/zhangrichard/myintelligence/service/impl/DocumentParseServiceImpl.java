@@ -22,6 +22,7 @@ public class DocumentParseServiceImpl implements DocumentParseService {
     private static final Logger log = LoggerFactory.getLogger(DocumentParseServiceImpl.class);
 
     private static final String PARSE_QUEUE = "doc:parse:queue";
+    private static final String DELETE_QUEUE = "doc:delete:queue";
     private static final String STATUS_QUEUE = "doc:status:queue";
 
     @Autowired
@@ -52,6 +53,20 @@ public class DocumentParseServiceImpl implements DocumentParseService {
             log.info("已提交文档解析任务: documentId={}, title={}", document.getId(), document.getTitle());
         } catch (Exception e) {
             log.error("提交文档解析任务失败: documentId={}", document.getId(), e);
+        }
+    }
+
+    @Override
+    public void submitDeleteTask(Long documentId) {
+        try {
+            Map<String, Object> task = new HashMap<>();
+            task.put("documentId", documentId);
+
+            String json = objectMapper.writeValueAsString(task);
+            redisTemplate.opsForList().leftPush(DELETE_QUEUE, json);
+            log.info("已提交文档删除任务: documentId={}", documentId);
+        } catch (Exception e) {
+            log.error("提交文档删除任务失败: documentId={}", documentId, e);
         }
     }
 

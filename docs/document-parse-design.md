@@ -9,7 +9,9 @@
 ```
 用户上传 → Java(保存文件+写DB) → Redis doc:parse:queue
                                         ↓
-                                  Python 阶段1: 提交MinerU异步OCR
+                                  Python: 消费删除队列(清理ES+ChromaDB)
+                                        ↓
+                                  Python 阶段1: 清理旧数据 → 提交MinerU异步OCR
                                         ↓
                                   Redis doc:mineru:tasks (Hash跟踪)
                                         ↓
@@ -18,6 +20,10 @@
                                   Python 阶段3: 写ES + ChromaDB (每轮1个)
                                         ↓
                                   status=3 → Java更新DB
+
+用户删除 → Java(删文件+删DB) → Redis doc:delete:queue
+                                        ↓
+                                  Python: 清理ES + ChromaDB
 ```
 
 ## 文档状态流转
@@ -55,7 +61,27 @@
 | title | string | 文档标题 |
 | tags | string[] | 标签名称列表 |
 
-### 2. MinerU 任务跟踪 `doc:mineru:tasks`（Hash）
+### 2. 删除任务队列 `doc:delete:queue`（List）
+
+**方向**：Java → Python
+
+**操作**：Java `LPUSH` 入队，Python `RPOP` 消费
+
+```json
+{
+  "documentId": 123
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| documentId | long | 文档 ID（MySQL 主键） |
+
+- 文档删除时由 Java 推入队列
+- Python 消费后清理该文档在 ES 和 ChromaDB 中的数据
+- 清理失败不影响流程（数据可能本就不存在）
+
+### 3. MinerU 任务跟踪 `doc:mineru:tasks`（Hash）
 
 **方向**：Python 内部使用
 
@@ -82,7 +108,7 @@ value: JSON字符串
 - 完成或失败后 `HDEL` 移除
 - 持久化在 Redis 中，Python 服务重启可恢复
 
-### 3. 索引任务队列 `doc:index:queue`（List）
+### 4. 索引任务队列 `doc:index:queue`（List）
 
 **方向**：Python 内部使用（阶段 2 生产 → 阶段 3 消费）
 
@@ -101,7 +127,7 @@ value: JSON字符串
 - MinerU 任务完成后，将 OCR 结果推入此队列
 - 阶段 3 每轮只消费 1 个，串行写入 ES 和 ChromaDB，避免资源争抢
 
-### 4. 状态回调队列 `doc:status:queue`（List）
+### 5. 状态回调队列 `doc:status:queue`（List）
 
 **方向**：Python → Java
 
@@ -127,8 +153,15 @@ value: JSON字符串
 
 ```
 while True:
+    # 消费删除队列（批量取完）
+    while task = redis.RPOP("doc:delete:queue"):
+        es.delete(task.documentId)
+        chroma.delete(task.documentId)
+
     # 阶段1：消费解析队列（批量取完）
-    while task = redis.LPOP("doc:parse:queue"):
+    while task = redis.RPOP("doc:parse:queue"):
+        es.delete(task.documentId)        # 清理旧数据（首次/重识别均执行）
+        chroma.delete(task.documentId)
         task_id = mineru.submit(task.filePath)
         redis.HSET("doc:mineru:tasks", task.documentId, {taskId, ...})
 
@@ -144,7 +177,7 @@ while True:
             redis.HDEL("doc:mineru:tasks", docId)
 
     # 阶段3：消费索引队列（每轮只处理1个）
-    if item = redis.LPOP("doc:index:queue"):
+    if item = redis.RPOP("doc:index:queue"):
         es.index(item)
         chroma.store(item)
         redis.LPUSH("doc:status:queue", {docId, status=3})

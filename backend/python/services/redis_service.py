@@ -9,6 +9,7 @@ import config
 logger = logging.getLogger(__name__)
 
 PARSE_QUEUE = "doc:parse:queue"           # Java -> Python: 待解析文档任务
+DELETE_QUEUE = "doc:delete:queue"         # Java -> Python: 待删除文档任务
 MINERU_TASKS_HASH = "doc:mineru:tasks"    # Python 内部: MinerU 异步任务跟踪
 INDEX_QUEUE = "doc:index:queue"           # Python 内部: OCR 完成待索引队列
 STATUS_QUEUE = "doc:status:queue"         # Python -> Java: 状态回调通知
@@ -31,6 +32,13 @@ def get_client() -> redis.Redis:
 
 def pop_parse_task() -> Optional[dict]:
     data = get_client().rpop(PARSE_QUEUE)
+    if data is None:
+        return None
+    return json.loads(data)
+
+
+def pop_delete_task() -> Optional[dict]:
+    data = get_client().rpop(DELETE_QUEUE)
     if data is None:
         return None
     return json.loads(data)

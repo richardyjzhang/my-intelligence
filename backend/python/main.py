@@ -24,6 +24,33 @@ def health():
     return jsonify({"status": "ok"})
 
 
+def consume_delete_queue():
+    """消费删除队列，清理文档在 ES 和 ChromaDB 中的数据"""
+    count = 0
+    while True:
+        task = redis_service.pop_delete_task()
+        if task is None:
+            break
+
+        document_id = task["documentId"]
+        logger.info("处理删除任务 documentId=%s", document_id)
+
+        try:
+            es_service.delete_document(document_id)
+        except Exception as e:
+            logger.warning("ES 删除失败(可忽略): documentId=%s, error=%s", document_id, e)
+
+        try:
+            chroma_service.delete_document(document_id)
+        except Exception as e:
+            logger.warning("ChromaDB 删除失败(可忽略): documentId=%s, error=%s", document_id, e)
+
+        count += 1
+
+    if count > 0:
+        logger.info("删除任务完成: 共清理 %s 个文档", count)
+
+
 def phase1_consume_parse_queue():
     """阶段1：消费解析队列，批量取完所有任务并提交给 MinerU"""
     count = 0
@@ -156,6 +183,7 @@ def poll_loop():
 
     while True:
         try:
+            consume_delete_queue()
             phase1_consume_parse_queue()
             phase2_poll_mineru_results()
             phase3_consume_index_queue()

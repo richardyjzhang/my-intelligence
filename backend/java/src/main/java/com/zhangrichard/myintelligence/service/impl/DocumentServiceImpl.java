@@ -94,6 +94,7 @@ public class DocumentServiceImpl implements DocumentService {
 
         fileService.delete(document.getFilePath());
         documentRepository.deleteById(id);
+        documentParseService.submitDeleteTask(id);
     }
 
     @Override
