@@ -8,10 +8,10 @@ import config
 
 logger = logging.getLogger(__name__)
 
-PARSE_QUEUE = "doc:parse:queue"
-MINERU_TASKS_HASH = "doc:mineru:tasks"
-INDEX_QUEUE = "doc:index:queue"
-STATUS_QUEUE = "doc:status:queue"
+PARSE_QUEUE = "doc:parse:queue"           # Java -> Python: 待解析文档任务
+MINERU_TASKS_HASH = "doc:mineru:tasks"    # Python 内部: MinerU 异步任务跟踪
+INDEX_QUEUE = "doc:index:queue"           # Python 内部: OCR 完成待索引队列
+STATUS_QUEUE = "doc:status:queue"         # Python -> Java: 状态回调通知
 
 _client: Optional[redis.Redis] = None
 
