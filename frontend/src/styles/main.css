@@ -285,36 +285,3 @@ select {
   color: #86909c;
 }
 
-/* ---- Login ---- */
-
-.login-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%);
-}
-
-.login-card {
-  width: 24rem;
-}
-
-.login-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.login-badge {
-  width: 3rem;
-  height: 3rem;
-}
-
-.login-title {
-  margin: 0;
-  font-size: calc(1rem + 2px);
-  font-weight: 600;
-  color: #1d2129;
-}
