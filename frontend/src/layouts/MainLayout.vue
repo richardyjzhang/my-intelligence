@@ -14,10 +14,12 @@ import {
 import { LogOutOutline, PersonOutline, CloseOutline } from '@vicons/ionicons5'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
 import { useTabsStore } from '@/stores/tabs'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const tabsStore = useTabsStore()
+const authStore = useAuthStore()
 
 watch(
   () => route.path,
@@ -32,6 +34,16 @@ function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
+function filterMenuItems(items: MenuItemConfig[]): MenuItemConfig[] {
+  return items
+    .filter((item) => !item.adminOnly || authStore.isAdmin)
+    .map((item) => ({
+      ...item,
+      children: item.children ? filterMenuItems(item.children) : undefined,
+    }))
+    .filter((item) => !item.children || item.children.length > 0)
+}
+
 function buildMenuOptions(items: MenuItemConfig[]): MenuOption[] {
   return items.map((item) => ({
     label: item.label,
@@ -41,7 +53,7 @@ function buildMenuOptions(items: MenuItemConfig[]): MenuOption[] {
   }))
 }
 
-const menuOptions = computed<MenuOption[]>(() => buildMenuOptions(menuConfig))
+const menuOptions = computed<MenuOption[]>(() => buildMenuOptions(filterMenuItems(menuConfig)))
 
 const menuGroupKeys = menuConfig
   .filter((item) => item.children)
@@ -90,11 +102,14 @@ const userDropdownOptions = [
   },
 ]
 
-function handleUserDropdown(key: string) {
+async function handleUserDropdown(key: string) {
   if (key === 'logout') {
+    await authStore.logout()
     void router.push('/login')
   }
 }
+
+const displayName = computed(() => authStore.user?.nickname || authStore.user?.username || '用户')
 </script>
 
 <template>
@@ -111,7 +126,7 @@ function handleUserDropdown(key: string) {
         <NDropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
           <div class="app-topbar__user">
             <NIcon :component="PersonOutline" :size="18" />
-            <span>管理员</span>
+            <span>{{ displayName }}</span>
           </div>
         </NDropdown>
       </div>

@@ -17,6 +17,7 @@ export interface MenuItemConfig {
   icon: Component
   component?: () => Promise<{ default: Component }>
   children?: MenuItemConfig[]
+  adminOnly?: boolean
 }
 
 export const menuConfig: MenuItemConfig[] = [
@@ -66,6 +67,7 @@ export const menuConfig: MenuItemConfig[] = [
         icon: PeopleOutline,
         path: 'settings/users',
         component: () => import('@/views/settings/users/index.vue'),
+        adminOnly: true,
       },
       {
         label: '标签管理',

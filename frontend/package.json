@@ -17,6 +17,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@vicons/ionicons5": "^0.13.0",
+    "axios": "^1.14.0",
     "naive-ui": "^2.44.1",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.2",
