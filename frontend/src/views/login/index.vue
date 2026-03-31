@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NForm, NFormItem, NInput, NButton, NIcon } from 'naive-ui'
-import { LibraryOutline } from '@vicons/ionicons5'
+import { NCard, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 
 const router = useRouter()
 const username = ref('')
@@ -18,10 +17,8 @@ function handleLogin() {
     <NCard class="login-card">
       <template #header>
         <div class="login-header">
-          <span class="login-badge">
-            <NIcon :component="LibraryOutline" :size="28" />
-          </span>
-          <h2 class="login-title">个人知识库</h2>
+          <img src="/favicon.svg" alt="logo" class="login-badge" />
+          <h2 class="login-title">拾知 · 个人知识管理系统</h2>
         </div>
       </template>
       <NForm @submit.prevent="handleLogin">

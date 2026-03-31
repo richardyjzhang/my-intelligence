@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, type Component } from 'vue'
+import { computed, h, watch, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
@@ -11,11 +11,22 @@ import {
   NDropdown,
   type MenuOption,
 } from 'naive-ui'
-import { LogOutOutline, PersonOutline, BookOutline } from '@vicons/ionicons5'
+import { LogOutOutline, PersonOutline, CloseOutline } from '@vicons/ionicons5'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
+import { useTabsStore } from '@/stores/tabs'
 
 const router = useRouter()
 const route = useRoute()
+const tabsStore = useTabsStore()
+
+watch(
+  () => route.path,
+  (path) => {
+    const title = typeof route.meta.title === 'string' ? route.meta.title : path
+    tabsStore.addTab(path, title)
+  },
+  { immediate: true },
+)
 
 function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) })
@@ -41,12 +52,34 @@ const activeMenuKey = computed(() => {
   return typeof meta.activeMenu === 'string' ? meta.activeMenu : route.path
 })
 
-const currentPageTitle = computed(() => {
-  return typeof route.meta.title === 'string' ? route.meta.title : ''
-})
-
 function handleMenuUpdate(key: string) {
   void router.push(key)
+}
+
+function handleTabClick(path: string) {
+  tabsStore.setActive(path)
+  void router.push(path)
+}
+
+function closeTab(path: string) {
+  if (tabsStore.tabs.length <= 1) return
+  const wasActive = tabsStore.activeTab === path
+  tabsStore.removeTab(path)
+  if (wasActive) {
+    void router.push(tabsStore.activeTab)
+  }
+}
+
+function handleTabClose(e: Event, path: string) {
+  e.stopPropagation()
+  closeTab(path)
+}
+
+function handleTabMousedown(e: MouseEvent, path: string) {
+  if (e.button === 1) {
+    e.preventDefault()
+    closeTab(path)
+  }
 }
 
 const userDropdownOptions = [
@@ -69,14 +102,12 @@ function handleUserDropdown(key: string) {
     <NLayoutHeader bordered class="app-topbar">
       <div class="app-topbar__left">
         <div class="app-topbar__logo">
-          <span class="app-topbar__badge">
-            <NIcon :component="BookOutline" :size="20" />
-          </span>
-          <span class="app-topbar__name">个人知识库</span>
+          <img src="/favicon.svg" alt="logo" class="app-topbar__badge" />
+          <span class="app-topbar__name">拾知 · 个人知识管理系统</span>
         </div>
       </div>
       <div class="app-topbar__right">
-        <span class="app-topbar__hint">My Intelligence</span>
+        <span class="app-topbar__hint">ShiZhi Knowledge Management System</span>
         <NDropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
           <div class="app-topbar__user">
             <NIcon :component="PersonOutline" :size="18" />
@@ -105,9 +136,28 @@ function handleUserDropdown(key: string) {
       </NLayoutSider>
 
       <NLayout>
-        <NLayoutHeader v-if="currentPageTitle" class="app-page-header">
-          <h1 class="app-page-header__title">{{ currentPageTitle }}</h1>
-        </NLayoutHeader>
+        <div class="tab-bar">
+          <div class="tab-bar__scroll">
+            <div
+              v-for="tab in tabsStore.tabs"
+              :key="tab.path"
+              class="tab-item"
+              :class="{ 'tab-item--active': tabsStore.activeTab === tab.path }"
+              @click="handleTabClick(tab.path)"
+              @mousedown="handleTabMousedown($event, tab.path)"
+            >
+              <NIcon v-if="tab.icon" :component="tab.icon" :size="15" class="tab-item__icon" />
+              <span class="tab-item__title">{{ tab.title }}</span>
+              <span
+                v-if="tabsStore.tabs.length > 1"
+                class="tab-item__close"
+                @click="handleTabClose($event, tab.path)"
+              >
+                <NIcon :component="CloseOutline" :size="14" />
+              </span>
+            </div>
+          </div>
+        </div>
 
         <NLayoutContent
           content-style="padding: 0 1.25rem 1.25rem;"

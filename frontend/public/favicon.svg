@@ -1,18 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#0084ff"/>
-  <!-- book shape -->
-  <path d="M8 7.5C8 6.67 8.67 6 9.5 6H15v20H9.5C8.67 26 8 25.33 8 24.5V7.5Z" fill="rgba(255,255,255,0.85)"/>
-  <path d="M17 6h5.5C23.33 6 24 6.67 24 7.5V24.5c0 .83-.67 1.5-1.5 1.5H17V6Z" fill="rgba(255,255,255,0.6)"/>
-  <!-- spine -->
-  <rect x="15" y="6" width="2" height="20" fill="rgba(255,255,255,1)"/>
-  <!-- lines on left page -->
-  <line x1="10" y1="11" x2="14" y2="11" stroke="#0084ff" stroke-width="1" stroke-linecap="round"/>
-  <line x1="10" y1="14" x2="13" y2="14" stroke="#0084ff" stroke-width="1" stroke-linecap="round"/>
-  <line x1="10" y1="17" x2="14" y2="17" stroke="#0084ff" stroke-width="1" stroke-linecap="round"/>
-  <!-- sparkle on right page (knowledge/intelligence) -->
-  <circle cx="20.5" cy="14" r="1.2" fill="#0084ff"/>
-  <line x1="20.5" y1="11" x2="20.5" y2="17" stroke="#0084ff" stroke-width="0.8" stroke-linecap="round"/>
-  <line x1="17.5" y1="14" x2="23.5" y2="14" stroke="#0084ff" stroke-width="0.8" stroke-linecap="round"/>
-  <line x1="18.4" y1="11.9" x2="22.6" y2="16.1" stroke="#0084ff" stroke-width="0.7" stroke-linecap="round"/>
-  <line x1="22.6" y1="11.9" x2="18.4" y2="16.1" stroke="#0084ff" stroke-width="0.7" stroke-linecap="round"/>
+  <path d="M16 8C13 7 10 6.5 7 7v16c3-0.5 6 0 9 1V8Z" fill="rgba(255,255,255,0.9)"/>
+  <path d="M16 8c3-1 6-1.5 9-1v16c-3-0.5-6 0-9 1V8Z" fill="rgba(255,255,255,0.65)"/>
+  <path d="M16 8v16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
