@@ -4,6 +4,7 @@ import {
   NCard,
   NDataTable,
   NButton,
+  NIcon,
   NInput,
   NSpace,
   NModal,
@@ -17,7 +18,8 @@ import {
   type FormInst,
   type FormRules,
 } from 'naive-ui'
-import { getUsers, createUser, updateUser, deleteUser } from '@/api/user'
+import { SearchOutline, AddOutline, CreateOutline, TrashOutline, LockClosedOutline } from '@vicons/ionicons5'
+import { getUsers, createUser, updateUser, changePassword, deleteUser } from '@/api/user'
 import type { UserInfo } from '@/api/auth'
 import { hashPassword } from '@/utils/crypto'
 
@@ -46,22 +48,62 @@ const formModel = reactive({
   phone: '',
   email: '',
   password: '',
+  confirmPassword: '',
   admin: false,
 })
 const formSaving = ref(false)
 
+const showPwdModal = ref(false)
+const pwdTarget = ref<{ id: number; username: string } | null>(null)
+const pwdFormRef = ref<FormInst | null>(null)
+const pwdModel = reactive({ password: '', confirmPassword: '' })
+const pwdSaving = ref(false)
+
+function validatePasswordStrength(_rule: unknown, value: string) {
+  if (!value) return true
+  if (value.length < 6) return new Error('密码至少6位')
+  let categories = 0
+  if (/[a-z]/.test(value)) categories++
+  if (/[A-Z]/.test(value)) categories++
+  if (/\d/.test(value)) categories++
+  if (/[^a-zA-Z\d]/.test(value)) categories++
+  if (categories < 2) return new Error('密码须包含大小写、数字、特殊符号中的至少两类')
+  return true
+}
+
+const passwordRules = [
+  { required: true, message: '请输入密码', trigger: 'blur' },
+  { validator: validatePasswordStrength, trigger: 'blur' },
+]
+
 const createRules: FormRules = {
   username: [{ required: true, message: '请输入登录名', trigger: 'blur' }],
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6位', trigger: 'blur' },
+  password: passwordRules,
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    {
+      validator: (_rule: unknown, value: string) =>
+        value === formModel.password ? true : new Error('两次密码不一致'),
+      trigger: 'blur',
+    },
   ],
 }
 
 const editRules: FormRules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
-  password: [{ min: 6, message: '密码至少6位', trigger: 'blur' }],
+}
+
+const pwdRules: FormRules = {
+  password: passwordRules,
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    {
+      validator: (_rule: unknown, value: string) =>
+        value === pwdModel.password ? true : new Error('两次密码不一致'),
+      trigger: 'blur',
+    },
+  ],
 }
 
 const columns: DataTableColumns<UserInfo> = [
@@ -88,11 +130,24 @@ const columns: DataTableColumns<UserInfo> = [
   {
     title: '操作',
     key: 'actions',
-    width: 140,
+    width: 220,
     render(row) {
       return h(NSpace, { size: 'small' }, () => [
-        h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => handleEdit(row) }, { default: () => '编辑' }),
-        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' }),
+        h(
+          NButton,
+          { size: 'small', text: true, type: 'info', onClick: () => handleEdit(row) },
+          { default: () => '编辑', icon: () => h(NIcon, { component: CreateOutline }) },
+        ),
+        h(
+          NButton,
+          { size: 'small', text: true, type: 'warning', onClick: () => handleChangePassword(row) },
+          { default: () => '修改密码', icon: () => h(NIcon, { component: LockClosedOutline }) },
+        ),
+        h(
+          NButton,
+          { size: 'small', text: true, type: 'error', onClick: () => handleDelete(row) },
+          { default: () => '删除', icon: () => h(NIcon, { component: TrashOutline }) },
+        ),
       ])
     },
   },
@@ -137,6 +192,7 @@ function resetForm() {
   formModel.phone = ''
   formModel.email = ''
   formModel.password = ''
+  formModel.confirmPassword = ''
   formModel.admin = false
 }
 
@@ -154,9 +210,38 @@ function handleEdit(row: UserInfo) {
   formModel.nickname = row.nickname
   formModel.phone = row.phone || ''
   formModel.email = row.email || ''
-  formModel.password = ''
   formModel.admin = row.admin
   showModal.value = true
+}
+
+function handleChangePassword(row: UserInfo) {
+  pwdTarget.value = { id: row.id, username: row.username }
+  pwdModel.password = ''
+  pwdModel.confirmPassword = ''
+  showPwdModal.value = true
+}
+
+async function handlePwdSubmit() {
+  try {
+    await pwdFormRef.value?.validate()
+  } catch {
+    return
+  }
+  if (!pwdTarget.value) return
+
+  pwdSaving.value = true
+  try {
+    const hashed = await hashPassword(pwdTarget.value.username, pwdModel.password)
+    const res = await changePassword(pwdTarget.value.id, hashed)
+    if (res.code === 200) {
+      message.success('密码修改成功')
+      showPwdModal.value = false
+    }
+  } catch {
+    message.error('密码修改失败')
+  } finally {
+    pwdSaving.value = false
+  }
 }
 
 function handleDelete(row: UserInfo) {
@@ -189,15 +274,10 @@ async function handleSubmit() {
   formSaving.value = true
   try {
     if (isEdit.value && editingId.value !== null) {
-      let hashedPwd: string | undefined
-      if (formModel.password) {
-        hashedPwd = await hashPassword(formModel.username, formModel.password)
-      }
       const res = await updateUser(editingId.value, {
         nickname: formModel.nickname,
         phone: formModel.phone || undefined,
         email: formModel.email || undefined,
-        password: hashedPwd,
         admin: formModel.admin,
       })
       if (res.code === 200) {
@@ -236,9 +316,15 @@ onMounted(fetchData)
     <NSpace justify="space-between" align="center" class="mb-4">
       <NSpace>
         <NInput v-model:value="keyword" placeholder="搜索用户名/昵称" clearable style="width: 240px" @clear="handleSearch" @keydown.enter="handleSearch" />
-        <NButton type="primary" @click="handleSearch">搜索</NButton>
+        <NButton type="primary" @click="handleSearch">
+          <template #icon><NIcon :component="SearchOutline" /></template>
+          搜索
+        </NButton>
       </NSpace>
-      <NButton type="primary" @click="handleCreate">新增用户</NButton>
+      <NButton type="primary" @click="handleCreate">
+        <template #icon><NIcon :component="AddOutline" /></template>
+        新增
+      </NButton>
     </NSpace>
 
     <NDataTable
@@ -272,12 +358,20 @@ onMounted(fetchData)
         <NFormItem label="邮箱" path="email">
           <NInput v-model:value="formModel.email" placeholder="请输入邮箱（可选）" />
         </NFormItem>
-        <NFormItem label="密码" path="password">
+        <NFormItem v-if="!isEdit" label="密码" path="password">
           <NInput
             v-model:value="formModel.password"
             type="password"
             show-password-on="click"
-            :placeholder="isEdit ? '留空则不修改密码' : '请输入密码'"
+            placeholder="请输入密码"
+          />
+        </NFormItem>
+        <NFormItem v-if="!isEdit" label="确认密码" path="confirmPassword">
+          <NInput
+            v-model:value="formModel.confirmPassword"
+            type="password"
+            show-password-on="click"
+            placeholder="请再次输入密码"
           />
         </NFormItem>
         <NFormItem label="管理员" path="admin">
@@ -288,6 +382,29 @@ onMounted(fetchData)
         <NSpace justify="end">
           <NButton @click="showModal = false">取消</NButton>
           <NButton type="primary" :loading="formSaving" @click="handleSubmit">确定</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <NModal
+      v-model:show="showPwdModal"
+      preset="card"
+      title="修改密码"
+      style="width: 420px"
+      :mask-closable="false"
+    >
+      <NForm ref="pwdFormRef" :model="pwdModel" :rules="pwdRules" label-placement="left" label-width="80">
+        <NFormItem label="新密码" path="password">
+          <NInput v-model:value="pwdModel.password" type="password" show-password-on="click" placeholder="请输入新密码" />
+        </NFormItem>
+        <NFormItem label="确认密码" path="confirmPassword">
+          <NInput v-model:value="pwdModel.confirmPassword" type="password" show-password-on="click" placeholder="请再次输入密码" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showPwdModal = false">取消</NButton>
+          <NButton type="primary" :loading="pwdSaving" @click="handlePwdSubmit">确定</NButton>
         </NSpace>
       </template>
     </NModal>

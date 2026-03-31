@@ -54,11 +54,16 @@ public class UserServiceImpl implements UserService {
         user.setEmail(input.getEmail());
         user.setAdmin(input.isAdmin());
 
-        if (input.getPassword() != null && !input.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(input.getPassword()));
-        }
-
         return userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long id, String newPassword) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     @Override

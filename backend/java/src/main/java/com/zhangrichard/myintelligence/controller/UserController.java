@@ -37,6 +37,12 @@ public class UserController {
         return Result.ok(userService.updateUser(id, user));
     }
 
+    @PutMapping("/{id}/password")
+    public Result<Void> changePassword(@PathVariable Long id, @RequestBody User user) {
+        userService.changePassword(id, user.getPassword());
+        return Result.ok();
+    }
+
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         userService.deleteUser(id);

@@ -11,10 +11,9 @@ export interface UserCreateParams {
 }
 
 export interface UserUpdateParams {
-  nickname: string
+  nickname?: string
   phone?: string
   email?: string
-  password?: string
   admin?: boolean
 }
 
@@ -50,6 +49,10 @@ export function createUser(data: UserCreateParams): Promise<Result<UserInfo>> {
 
 export function updateUser(id: number, data: UserUpdateParams): Promise<Result<UserInfo>> {
   return request.put(`/users/${id}`, data)
+}
+
+export function changePassword(id: number, password: string): Promise<Result<void>> {
+  return request.put(`/users/${id}/password`, { password })
 }
 
 export function deleteUser(id: number): Promise<Result<void>> {
