@@ -3,7 +3,16 @@ server:
   servlet:
     context-path: /api
 
+app:
+  file:
+    root-path: D:/Code/AI-Projects/my-intelligence/data
+
 spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
   datasource:
     url: jdbc:mysql://localhost:3306/my_intelligence?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root

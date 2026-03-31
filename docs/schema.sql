@@ -62,3 +62,33 @@ CREATE TABLE IF NOT EXISTS `fragment_tag` (
     `tag_id`      BIGINT NOT NULL,
     PRIMARY KEY (`fragment_id`, `tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='碎片知识-标签关联表';
+
+-- ============================================
+-- 文档知识表
+-- ============================================
+CREATE TABLE IF NOT EXISTS `document` (
+    `id`           BIGINT        NOT NULL AUTO_INCREMENT,
+    `title`        VARCHAR(200)  NOT NULL COMMENT '名称',
+    `code`         VARCHAR(100)  NULL     COMMENT '编号',
+    `publish_date` DATE          NULL     COMMENT '发布时间',
+    `status`       TINYINT       NOT NULL DEFAULT 1 COMMENT '处理状态（1=待识别, 2=待处理, 3=处理完成）',
+    `url`          VARCHAR(500)  NULL     COMMENT '在线文档地址',
+    `remark`       TEXT          NULL     COMMENT '备注',
+    `file_name`    VARCHAR(255)  NOT NULL COMMENT '原始文件名',
+    `file_path`    VARCHAR(500)  NOT NULL COMMENT '相对存储路径',
+    `file_size`    BIGINT        NOT NULL COMMENT '文件大小（字节）',
+    `creator_id`   BIGINT        NOT NULL COMMENT '创建人ID',
+    `create_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_creator_id` (`creator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档知识表';
+
+-- ============================================
+-- 文档知识-标签关联表
+-- ============================================
+CREATE TABLE IF NOT EXISTS `document_tag` (
+    `document_id` BIGINT NOT NULL,
+    `tag_id`      BIGINT NOT NULL,
+    PRIMARY KEY (`document_id`, `tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档知识-标签关联表';
