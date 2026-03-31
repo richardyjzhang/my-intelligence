@@ -133,7 +133,7 @@ const columns: DataTableColumns<UserInfo> = [
       return h(NSpace, { size: 'small' }, () => [
         h(
           NButton,
-          { size: 'small', text: true, type: 'info', onClick: () => handleEdit(row) },
+          { size: 'small', text: true, type: 'primary', onClick: () => handleEdit(row) },
           { default: () => '编辑', icon: () => h(NIcon, { component: CreateOutline }) },
         ),
         h(
