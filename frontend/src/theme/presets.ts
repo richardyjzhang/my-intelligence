@@ -10,11 +10,11 @@ export interface ThemePreset {
 export const THEME_PRESETS: ThemePreset[] = [
   {
     id: 'zhihu-blue',
-    name: '知乎蓝',
-    primary: '#0084ff',
-    primaryHover: '#2593ff',
-    primaryPressed: '#0066cc',
-    primarySuppl: '#0066cc',
+    name: '拾知蓝',
+    primary: '#008eaa',
+    primaryHover: '#1fa3c0',
+    primaryPressed: '#006e85',
+    primarySuppl: '#006e85',
   },
   {
     id: 'forgive-green',
