@@ -6,6 +6,9 @@ server:
 app:
   file:
     root-path: D:/Code/AI-Projects/my-intelligence/data
+  elasticsearch:
+    host: localhost
+    port: 9200
 
 spring:
   servlet:
