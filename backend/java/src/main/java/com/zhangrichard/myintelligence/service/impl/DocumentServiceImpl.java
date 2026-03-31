@@ -6,6 +6,7 @@ import com.zhangrichard.myintelligence.entity.User;
 import com.zhangrichard.myintelligence.repository.DocumentRepository;
 import com.zhangrichard.myintelligence.repository.TagRepository;
 import com.zhangrichard.myintelligence.service.AuthService;
+import com.zhangrichard.myintelligence.service.DocumentParseService;
 import com.zhangrichard.myintelligence.service.DocumentService;
 import com.zhangrichard.myintelligence.service.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class DocumentServiceImpl implements DocumentService {
     @Autowired
     private FileService fileService;
 
+    @Autowired
+    private DocumentParseService documentParseService;
+
     @Override
     public List<Document> listDocuments(String keyword, List<Long> tagIds) {
         return documentRepository.searchByKeywordAndTags(keyword, tagIds);
@@ -60,7 +64,9 @@ public class DocumentServiceImpl implements DocumentService {
         document.setFilePath(relativePath);
         document.setFileSize(file.getSize());
 
-        return documentRepository.save(document);
+        Document saved = documentRepository.save(document);
+        documentParseService.submitParseTask(saved);
+        return saved;
     }
 
     @Override

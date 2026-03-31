@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS `document` (
     `title`        VARCHAR(200)  NOT NULL COMMENT '名称',
     `code`         VARCHAR(100)  NULL     COMMENT '编号',
     `publish_date` DATE          NULL     COMMENT '发布时间',
-    `status`       TINYINT       NOT NULL DEFAULT 1 COMMENT '处理状态（1=待识别, 2=待处理, 3=处理完成）',
+    `status`       TINYINT       NOT NULL DEFAULT 1 COMMENT '处理状态（1=待识别, 2=识别完成, 3=处理完成, -1=处理失败）',
     `url`          VARCHAR(500)  NULL     COMMENT '在线文档地址',
     `remark`       TEXT          NULL     COMMENT '备注',
     `file_name`    VARCHAR(255)  NOT NULL COMMENT '原始文件名',

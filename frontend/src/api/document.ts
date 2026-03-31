@@ -30,14 +30,16 @@ interface Result<T> {
 
 export const STATUS_OPTIONS = [
   { label: '待识别', value: 1 },
-  { label: '待处理', value: 2 },
+  { label: '识别完成', value: 2 },
   { label: '处理完成', value: 3 },
+  { label: '处理失败', value: -1 },
 ]
 
-export const STATUS_MAP: Record<number, { label: string; type: 'warning' | 'info' | 'success' }> = {
+export const STATUS_MAP: Record<number, { label: string; type: 'warning' | 'info' | 'success' | 'error' }> = {
   1: { label: '待识别', type: 'warning' },
-  2: { label: '待处理', type: 'info' },
+  2: { label: '识别完成', type: 'info' },
   3: { label: '处理完成', type: 'success' },
+  [-1]: { label: '处理失败', type: 'error' },
 }
 
 export function getDocuments(keyword?: string, tagIds?: number[]): Promise<Result<DocumentInfo[]>> {
