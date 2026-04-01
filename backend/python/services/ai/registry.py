@@ -5,7 +5,7 @@
 
 使用方式:
     # 注册（在各 agent 模块中）
-    from services.ai.agents import register_agent, AgentProfile
+    from services.ai.registry import register_agent, AgentProfile
     register_agent("chat", AgentProfile(
         name="对话智能体",
         system_prompt="...",

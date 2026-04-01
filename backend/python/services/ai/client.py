@@ -22,7 +22,7 @@ from typing import Any, Callable, Optional
 import anthropic
 
 import config
-from .agents import AgentProfile, get_agent
+from .registry import AgentProfile, get_agent
 
 logger = logging.getLogger(__name__)
 

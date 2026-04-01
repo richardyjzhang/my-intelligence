@@ -11,7 +11,7 @@ AI 服务模块 —— 统一管理大模型调用、智能体配置和提示词
 """
 
 from .client import ai_client, AIClient, AIResponse
-from .agents import get_agent, list_agents, register_agent, AgentProfile
+from .registry import get_agent, list_agents, register_agent, AgentProfile
 
 __all__ = [
     "ai_client",

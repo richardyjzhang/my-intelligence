@@ -2,20 +2,19 @@
 对话智能体 —— 基于知识库的 RAG 问答。
 
 职责：
-  1. 从 ChromaDB 检索相关文档片段
-  2. 构建带上下文的消息列表
-  3. 调用 AIClient 流式生成回答
-  4. 输出 SSE 格式事件流（meta / reasoning_delta / answer_delta / done / error）
+  1. 注册智能体配置
+  2. 编排检索 → 构建消息 → 流式生成的完整流程
+  3. 输出 SSE 格式事件流（meta / reasoning_delta / answer_delta / done / error）
 """
 
-import json
 import logging
 import uuid
 from typing import Generator
 
 import config
+from services.agents import sse_event
 from services.ai import ai_client, register_agent, AgentProfile
-from services.chroma_service import get_collection, get_embeddings
+from .tools import retrieve_context, build_messages
 
 logger = logging.getLogger(__name__)
 
@@ -41,57 +40,6 @@ register_agent(AGENT_ID, AgentProfile(
 ))
 
 
-def retrieve_context(query: str, top_k: int = 5) -> list[dict]:
-    """从 ChromaDB 检索与问题相关的文档片段"""
-    try:
-        collection = get_collection()
-        query_embedding = get_embeddings([query])[0]
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
-
-        contexts = []
-        if results and results["documents"]:
-            for i, doc in enumerate(results["documents"][0]):
-                meta = results["metadatas"][0][i] if results["metadatas"] else {}
-                distance = results["distances"][0][i] if results["distances"] else None
-                contexts.append({
-                    "content": doc,
-                    "title": meta.get("title", ""),
-                    "documentId": meta.get("documentId"),
-                    "chunkIndex": meta.get("chunkIndex"),
-                    "distance": distance,
-                })
-        return contexts
-    except Exception as e:
-        logger.warning("ChromaDB 检索失败: %s", e)
-        return []
-
-
-def _build_user_content(query: str, contexts: list[dict]) -> str:
-    """构建带知识片段上下文的用户消息内容"""
-    if not contexts:
-        return query
-
-    snippets = []
-    for i, ctx in enumerate(contexts, 1):
-        title = ctx.get("title", "未知文档")
-        snippets.append(f"【片段{i}】来源：{title}\n{ctx['content']}")
-    context_text = "\n\n".join(snippets)
-    return f"以下是相关知识片段：\n\n{context_text}\n\n用户问题：{query}"
-
-
-def _build_messages(query: str, contexts: list[dict], history: list[dict]) -> list[dict]:
-    """构建 Anthropic Messages API 格式的消息列表（不含 system）"""
-    messages = []
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": _build_user_content(query, contexts)})
-    return messages
-
-
 def chat_stream(query: str, history: list[dict] | None = None,
                 model: str | None = None) -> Generator[str, None, None]:
     """
@@ -103,7 +51,7 @@ def chat_stream(query: str, history: list[dict] | None = None,
     model = model or getattr(config, "CHAT_MODEL", "qwen3:8b")
 
     logger.info("[%s] 开始处理问答: query=%s, model=%s", request_id, query[:80], model)
-    yield _sse_event("meta", {"requestId": request_id, "model": model})
+    yield sse_event("meta", {"requestId": request_id, "model": model})
 
     try:
         logger.info("[%s] 检索知识片段...", request_id)
@@ -114,7 +62,7 @@ def chat_stream(query: str, history: list[dict] | None = None,
             for c in contexts
         ]
 
-        messages = _build_messages(query, contexts, history)
+        messages = build_messages(query, contexts, history)
         logger.info("[%s] 构建消息完成, 共 %s 条消息, 调用模型...", request_id, len(messages))
 
         reasoning_chunks = 0
@@ -122,19 +70,15 @@ def chat_stream(query: str, history: list[dict] | None = None,
         for event_type, text in ai_client.chat_stream(AGENT_ID, messages, model=model):
             if event_type == "thinking":
                 reasoning_chunks += 1
-                yield _sse_event("reasoning_delta", {"content": text})
+                yield sse_event("reasoning_delta", {"content": text})
             else:
                 answer_chunks += 1
-                yield _sse_event("answer_delta", {"content": text})
+                yield sse_event("answer_delta", {"content": text})
 
         logger.info("[%s] 问答完成: reasoning=%s chunks, answer=%s chunks",
                     request_id, reasoning_chunks, answer_chunks)
-        yield _sse_event("done", {"sources": sources})
+        yield sse_event("done", {"sources": sources})
 
     except Exception as e:
         logger.error("Chat 流式异常: %s", e, exc_info=True)
-        yield _sse_event("error", {"message": str(e)})
-
-
-def _sse_event(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+        yield sse_event("error", {"message": str(e)})

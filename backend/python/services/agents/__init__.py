@@ -4,4 +4,12 @@
 新增智能体时，在此处添加 import 即可。
 """
 
-from . import chat  # noqa: F401
+import json
+
+
+def sse_event(event: str, data: dict) -> str:
+    """格式化 SSE 事件行，所有流式智能体通用。"""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+from . import chat  # noqa: F401, E402
