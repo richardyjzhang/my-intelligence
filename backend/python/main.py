@@ -8,7 +8,7 @@ from flask import Flask, Response, jsonify, request
 
 import config
 from services import redis_service, mineru_service, es_service, chroma_service
-from services import chat_service
+from services.agents.chat import agent as chat_agent
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -45,7 +45,7 @@ def chat_stream():
         logger.info("开始生成 SSE 流: model=%s", model or config.CHAT_MODEL)
         event_count = 0
         try:
-            for event in chat_service.chat_stream(query, history, model):
+            for event in chat_agent.chat_stream(query, history, model):
                 event_count += 1
                 yield event
             logger.info("SSE 流结束, 共发送 %s 个事件", event_count)

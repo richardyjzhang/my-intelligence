@@ -18,6 +18,12 @@ CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "D:/Code/AI-Projects/my-int
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 
+AI_API_BASE_URL = os.getenv("AI_API_BASE_URL", OLLAMA_BASE_URL)
+AI_API_KEY = os.getenv("AI_API_KEY", "ollama")
+AI_MODEL = os.getenv("AI_MODEL", "")
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "4096"))
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.3"))
+
 FILE_ROOT_PATH = os.getenv("FILE_ROOT_PATH", "D:/Code/AI-Projects/my-intelligence/data")
 
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "60"))

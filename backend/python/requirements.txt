@@ -4,4 +4,5 @@ elasticsearch>=8.0,<9.0
 chromadb
 httpx
 openai
+anthropic
 python-dotenv
