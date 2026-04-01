@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { NIcon, NSpin, NTag } from 'naive-ui'
-import {
-  PersonOutline,
-  SparklesOutline,
-  ChevronDownOutline,
-  DocumentTextOutline,
-} from '@vicons/ionicons5'
-import MarkdownIt from 'markdown-it'
+import { DocumentTextOutline, ReloadOutline } from '@vicons/ionicons5'
+import { renderMarkdown } from '@/utils/markdown'
 import * as echarts from 'echarts'
-
-const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
 interface DisplayMessage {
   id: string
@@ -18,39 +11,45 @@ interface DisplayMessage {
   content: string
   reasoning: string
   sources?: { title: string; documentId: number }[]
-  loading?: boolean
+  streaming?: boolean
+  reasoningPanelOpen?: boolean
 }
 
-const props = defineProps<{ message: DisplayMessage }>()
-
-const showReasoning = ref(false)
-const chartContainers = ref<HTMLElement[]>([])
-const chartInstanceMap = new Map<HTMLElement, echarts.ECharts>()
+const props = defineProps<{ message: DisplayMessage; expanded: boolean }>()
 
 const ECHARTS_REGEX = /```echarts\s*\n([\s\S]*?)```/g
+const chartInstanceMap = new Map<HTMLElement, echarts.ECharts>()
 
-function extractCharts(content: string): { html: string; charts: string[] } {
+function extractCharts(content: string): { cleaned: string; charts: string[] } {
   const charts: string[] = []
-  const html = content.replace(ECHARTS_REGEX, (_match, json) => {
+  const cleaned = content.replace(ECHARTS_REGEX, (_match, json) => {
     const index = charts.length
     charts.push(json.trim())
     return `<div class="echarts-placeholder" data-chart-index="${index}"></div>`
   })
-  return { html, charts }
+  return { cleaned, charts }
 }
 
 const rendered = computed(() => {
+  if (!props.message.content) return { html: '', charts: [] as string[] }
   if (props.message.role === 'user') {
-    return { html: md.render(props.message.content), charts: [] as string[] }
+    return { html: '', charts: [] as string[] }
   }
-  const { html, charts } = extractCharts(props.message.content)
-  return { html: md.render(html), charts }
+  const { cleaned, charts } = extractCharts(props.message.content)
+  return { html: renderMarkdown(cleaned), charts }
 })
 
 const reasoningHtml = computed(() => {
   if (!props.message.reasoning) return ''
-  return md.render(props.message.reasoning)
+  return renderMarkdown(props.message.reasoning)
 })
+
+function onThinkingToggle(e: Event) {
+  const el = e.target as HTMLDetailsElement | null
+  if (el && 'open' in el) {
+    ;(props.message as DisplayMessage).reasoningPanelOpen = el.open
+  }
+}
 
 function renderCharts() {
   nextTick(() => {
@@ -73,18 +72,15 @@ function renderCharts() {
         const instance = echarts.init(container)
         instance.setOption(option)
         chartInstanceMap.set(container, instance)
-      } catch (e) {
-        container.innerHTML = '<p style="color:#e03e3e;font-size:12px;">图表配置解析失败</p>'
+      } catch {
+        container.innerHTML =
+          '<p style="color:#e03e3e;font-size:12px;">图表配置解析失败</p>'
       }
     })
   })
 }
 
-watch(
-  () => rendered.value,
-  () => renderCharts(),
-  { flush: 'post' },
-)
+watch(() => rendered.value, () => renderCharts(), { flush: 'post' })
 
 onMounted(() => {
   renderCharts()
@@ -104,43 +100,48 @@ function handleResize() {
 
 <template>
   <div
-    class="chat-message"
-    :class="[`chat-message--${message.role}`]"
+    class="gchat-msg"
+    :class="{
+      'gchat-msg--user': message.role === 'user',
+      'gchat-msg--assistant': message.role === 'assistant',
+    }"
     :data-msg-id="message.id"
   >
-    <div class="chat-message__avatar">
-      <NIcon
-        :component="message.role === 'user' ? PersonOutline : SparklesOutline"
-        :size="20"
-      />
-    </div>
-    <div class="chat-message__body">
+    <div class="gchat-msg__body">
       <!-- 思考过程 -->
-      <div v-if="message.reasoning" class="chat-message__reasoning">
-        <div
-          class="chat-message__reasoning-toggle"
-          @click="showReasoning = !showReasoning"
-        >
-          <NIcon :component="ChevronDownOutline" :size="14"
-            :style="{ transform: showReasoning ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }"
+      <details
+        v-if="message.reasoning"
+        class="gchat-msg__thinking-details"
+        :open="message.reasoningPanelOpen !== false"
+        @toggle="onThinkingToggle"
+      >
+        <summary class="gchat-msg__thinking-summary">
+          <NIcon
+            v-if="message.streaming && !message.content"
+            :component="ReloadOutline"
+            :size="12"
+            class="gchat-msg__thinking-spinner"
           />
-          <span>思考过程</span>
-        </div>
-        <div v-show="showReasoning" class="chat-message__reasoning-content" v-html="reasoningHtml" />
+          <span>{{ message.streaming && !message.content ? '思考中…' : '思考过程' }}</span>
+        </summary>
+        <div class="gchat-msg__thinking-text gchat-md" v-html="reasoningHtml" />
+      </details>
+
+      <!-- 主内容 -->
+      <div
+        class="gchat-msg__bubble"
+        :class="{ 'gchat-msg__bubble--md': message.role === 'assistant' }"
+      >
+        <template v-if="message.content">
+          <template v-if="message.role === 'user'">{{ message.content }}</template>
+          <div v-else class="gchat-md" v-html="rendered.html" />
+        </template>
+        <NSpin v-else-if="message.streaming && !message.reasoning" :size="16" />
+        <span v-else-if="message.streaming" class="gchat-cursor" />
       </div>
 
-      <!-- 加载中 -->
-      <NSpin v-if="message.loading && !message.content && !message.reasoning" :size="16" />
-
-      <!-- 正文 -->
-      <div
-        v-if="message.content"
-        class="chat-message__content markdown-body"
-        v-html="rendered.html"
-      />
-
       <!-- 来源引用 -->
-      <div v-if="message.sources?.length" class="chat-message__sources">
+      <div v-if="message.sources?.length" class="gchat-msg__sources">
         <NTag
           v-for="(src, i) in message.sources"
           :key="i"
@@ -157,135 +158,253 @@ function handleResize() {
 </template>
 
 <style scoped>
-.chat-message {
+.gchat-msg {
   display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
-.chat-message--user {
-  flex-direction: row-reverse;
+.gchat-msg--user {
+  justify-content: flex-end;
 }
 
-.chat-message__avatar {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+.gchat-msg--assistant {
+  justify-content: flex-start;
+}
+
+.gchat-msg__body {
+  max-width: min(32rem, 85%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ── 思考区 ── */
+.gchat-msg__thinking-details {
+  font-size: inherit;
+  color: var(--n-text-color-3, #86909c);
+  background: color-mix(in srgb, #6366f1 6%, var(--n-color-modal, #fafafc));
+  border: 1px solid color-mix(in srgb, #6366f1 15%, transparent);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem 0.375rem;
+}
+
+.gchat-msg__thinking-summary {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.chat-message--user .chat-message__avatar {
-  background: var(--theme-primary, #008eaa);
-  color: #fff;
-}
-
-.chat-message--assistant .chat-message__avatar {
-  background: #f0f0f0;
-  color: #666;
-}
-
-.chat-message__body {
-  max-width: 80%;
-  min-width: 40px;
-}
-
-.chat-message--user .chat-message__body {
-  background: var(--theme-primary, #008eaa);
-  color: #fff;
-  border-radius: 12px 2px 12px 12px;
-  padding: 10px 14px;
-}
-
-.chat-message--assistant .chat-message__body {
-  background: #f7f7f8;
-  color: #333;
-  border-radius: 2px 12px 12px 12px;
-  padding: 10px 14px;
-}
-
-.chat-message__reasoning {
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #999;
-}
-
-.chat-message__reasoning-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  gap: 0.375rem;
+  font-weight: 500;
+  color: #6366f1;
   cursor: pointer;
+  list-style: none;
   user-select: none;
+  font-size: 0.8125rem;
 }
 
-.chat-message__reasoning-toggle:hover {
-  color: #666;
+.gchat-msg__thinking-summary::-webkit-details-marker {
+  display: none;
 }
 
-.chat-message__reasoning-content {
-  margin-top: 6px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
-  font-size: 12px;
+.gchat-msg__thinking-spinner {
+  flex-shrink: 0;
+  animation: gchat-spin 1s linear infinite;
+}
+
+@keyframes gchat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gchat-msg__thinking-text {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--n-text-color-3, #86909c);
+  margin-top: 0.25rem;
+}
+
+/* ── 气泡 ── */
+.gchat-msg__bubble {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: inherit;
   line-height: 1.6;
-  color: #888;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.chat-message__content :deep(p) {
-  margin: 0 0 0.5em;
-  line-height: 1.6;
+.gchat-msg__bubble--md {
+  white-space: normal;
 }
 
-.chat-message__content :deep(p:last-child) {
+.gchat-msg--user .gchat-msg__bubble {
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 16%, #fff);
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #0084ff) 30%, transparent);
+  border-radius: 0.75rem 0.125rem 0.75rem 0.75rem;
+}
+
+.gchat-msg--assistant .gchat-msg__bubble {
+  background: var(--n-color, #fff);
+  border: 1px solid var(--n-border-color, #e5e6eb);
+  border-radius: 0.125rem 0.75rem 0.75rem 0.75rem;
+}
+
+/* ── 流式光标 ── */
+.gchat-cursor {
+  display: inline-block;
+  width: 0.5rem;
+  height: 1rem;
+  background: var(--theme-primary, #0084ff);
+  border-radius: 1px;
+  animation: gchat-blink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes gchat-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── 来源 ── */
+.gchat-msg__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+/* ── Markdown 内容样式（gchat-md） ── */
+.gchat-md {
+  word-break: break-word;
+}
+
+.gchat-md :deep(> :first-child) {
+  margin-top: 0;
+}
+
+.gchat-md :deep(> :last-child) {
   margin-bottom: 0;
 }
 
-.chat-message__content :deep(pre) {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 6px;
-  padding: 10px;
+.gchat-md :deep(p) {
+  margin: 0.35em 0;
+}
+
+.gchat-md :deep(h1),
+.gchat-md :deep(h2),
+.gchat-md :deep(h3),
+.gchat-md :deep(h4) {
+  margin: 0.5em 0 0.3em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.gchat-md :deep(h1) {
+  font-size: 1.2em;
+}
+
+.gchat-md :deep(h2) {
+  font-size: 1.12em;
+}
+
+.gchat-md :deep(h3),
+.gchat-md :deep(h4) {
+  font-size: 1.05em;
+}
+
+.gchat-md :deep(ul),
+.gchat-md :deep(ol) {
+  margin: 0.35em 0;
+  padding-left: 1.35em;
+}
+
+.gchat-md :deep(li) {
+  margin: 0.15em 0;
+}
+
+.gchat-md :deep(li > p) {
+  margin: 0.15em 0;
+}
+
+.gchat-md :deep(blockquote) {
+  margin: 0.35em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid color-mix(in srgb, var(--n-border-color, #e5e6eb) 85%, transparent);
+  color: var(--n-text-color-2, #4e5969);
+}
+
+.gchat-md :deep(pre) {
+  margin: 0.45em 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.375rem;
   overflow-x: auto;
-  font-size: 13px;
+  font-size: 0.9em;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--n-border-color, #e5e6eb) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--n-border-color, #e5e6eb) 50%, transparent);
 }
 
-.chat-message__content :deep(code) {
-  font-size: 13px;
-  background: rgba(0, 0, 0, 0.05);
-  padding: 1px 4px;
-  border-radius: 3px;
+.gchat-md :deep(:not(pre) > code) {
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  background: color-mix(in srgb, var(--n-border-color, #e5e6eb) 32%, transparent);
 }
 
-.chat-message__content :deep(pre code) {
-  background: none;
+.gchat-md :deep(pre code) {
   padding: 0;
+  background: none;
+  border-radius: 0;
+  font-size: inherit;
 }
 
-.chat-message__content :deep(ul),
-.chat-message__content :deep(ol) {
-  padding-left: 1.5em;
-  margin: 0.5em 0;
-}
-
-.chat-message__content :deep(table) {
+.gchat-md :deep(table) {
+  --gchat-md-table-border: #d0d5dd;
   border-collapse: collapse;
-  margin: 0.5em 0;
-  font-size: 13px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.45em 0;
+  font-size: 0.95em;
+  border: 1px solid var(--gchat-md-table-border);
+  background: var(--n-color, #fff);
 }
 
-.chat-message__content :deep(th),
-.chat-message__content :deep(td) {
-  border: 1px solid #ddd;
-  padding: 6px 10px;
+.gchat-md :deep(th),
+.gchat-md :deep(td) {
+  border: 1px solid var(--gchat-md-table-border);
+  padding: 0.35em 0.55em;
+  text-align: left;
+  vertical-align: top;
 }
 
-.chat-message__sources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+.gchat-md :deep(th) {
+  font-weight: 600;
+  background: color-mix(in srgb, #d0d5dd 18%, transparent);
+}
+
+.gchat-md :deep(hr) {
+  margin: 0.65em 0;
+  border: none;
+  border-top: 1px solid var(--n-border-color, #e5e6eb);
+}
+
+.gchat-md :deep(a) {
+  color: var(--theme-primary, #0084ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gchat-md :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
+.gchat-md :deep(input[type='checkbox']) {
+  margin-right: 0.35em;
+  vertical-align: middle;
 }
 </style>
