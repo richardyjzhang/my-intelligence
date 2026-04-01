@@ -22,5 +22,7 @@ FILE_ROOT_PATH = os.getenv("FILE_ROOT_PATH", "D:/Code/AI-Projects/my-intelligenc
 
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "60"))
 
+CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen3:8b")
+
 FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))

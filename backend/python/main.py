@@ -4,13 +4,14 @@ import threading
 import time
 from datetime import datetime
 
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify, request
 
 import config
 from services import redis_service, mineru_service, es_service, chroma_service
+from services import chat_service
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
@@ -22,6 +23,36 @@ app = Flask(__name__)
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/chat/stream", methods=["POST"])
+def chat_stream():
+    body = request.get_json(silent=True) or {}
+    query = body.get("query", "").strip()
+    logger.info("收到 chat 请求: query=%s, history长度=%s", query[:100] if query else "", len(body.get("history", [])))
+
+    if not query:
+        logger.warning("chat 请求缺少 query")
+        return jsonify({"error": "query is required"}), 400
+    if len(query) > 2000:
+        logger.warning("chat 请求 query 过长: %s", len(query))
+        return jsonify({"error": "query too long (max 2000)"}), 400
+
+    history = body.get("history", [])
+    model = body.get("model")
+
+    def generate():
+        logger.info("开始生成 SSE 流: model=%s", model or config.CHAT_MODEL)
+        event_count = 0
+        try:
+            for event in chat_service.chat_stream(query, history, model):
+                event_count += 1
+                yield event
+            logger.info("SSE 流结束, 共发送 %s 个事件", event_count)
+        except Exception as e:
+            logger.error("SSE 生成器异常: %s", e, exc_info=True)
+
+    return Response(generate(), content_type="text/event-stream")
 
 
 def consume_delete_queue():

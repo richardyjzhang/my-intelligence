@@ -9,6 +9,8 @@ app:
   elasticsearch:
     host: localhost
     port: 9200
+  python:
+    base-url: http://localhost:8081
 
 spring:
   servlet:
