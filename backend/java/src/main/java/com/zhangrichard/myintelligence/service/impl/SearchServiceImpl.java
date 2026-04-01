@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HighlightField;
 import co.elastic.clients.elasticsearch.core.search.HighlighterType;
@@ -107,17 +106,35 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
+    /**
+     * 相关性：标题短语匹配优先，其次标题分词，再次正文短语，最后正文分词（由 boost 体现）。
+     */
     private Query buildDocumentQuery(String keyword, List<String> tagNames) {
-        BoolQuery.Builder bool = new BoolQuery.Builder();
+        BoolQuery.Builder outer = new BoolQuery.Builder();
 
-        bool.must(m -> m.multiMatch(mm -> mm
-                .query(keyword)
-                .fields("title^2", "content")
-                .type(TextQueryType.BestFields)
-        ));
+        outer.must(m -> m.bool(b -> b
+                .minimumShouldMatch("1")
+                .should(s -> s.matchPhrase(mp -> mp
+                        .field("title")
+                        .query(keyword)
+                        .boost(10.0f)))
+                .should(s -> s.match(mt -> mt
+                        .field("title")
+                        .query(keyword)
+                        .analyzer("ik_smart")
+                        .boost(5.0f)))
+                .should(s -> s.matchPhrase(mp -> mp
+                        .field("content")
+                        .query(keyword)
+                        .boost(2.0f)))
+                .should(s -> s.match(mt -> mt
+                        .field("content")
+                        .query(keyword)
+                        .analyzer("ik_smart")
+                        .boost(1.0f)))));
 
         if (tagNames != null && !tagNames.isEmpty()) {
-            bool.filter(f -> f.terms(t -> t
+            outer.filter(f -> f.terms(t -> t
                     .field("tags")
                     .terms(tv -> tv.value(tagNames.stream()
                             .map(FieldValue::of)
@@ -125,7 +142,7 @@ public class SearchServiceImpl implements SearchService {
             ));
         }
 
-        return bool.build()._toQuery();
+        return outer.build()._toQuery();
     }
 
     private List<Map<String, Object>> searchFragments(String keyword, List<Long> tagIds) {
