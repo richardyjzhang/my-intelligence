@@ -35,7 +35,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTagData } from '@/composables/useTagData'
 import TagSelect from '../components/TagSelect.vue'
 import DocumentFormModal from './DocumentFormModal.vue'
-import DocumentPreviewModal from './DocumentPreviewModal.vue'
+import DocumentPreviewModal from '@/views/components/DocumentPreviewModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()

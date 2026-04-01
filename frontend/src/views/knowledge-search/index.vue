@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import {
   NButton,
   NIcon,
   NTag,
   NEmpty,
   NSpin,
-  NDivider,
   NPopover,
   NCheckbox,
   NBadge,
   useMessage,
   useThemeVars,
 } from 'naive-ui'
-import {
-  SearchOutline,
-  DocumentTextOutline,
-  CutOutline,
-  PricetagsOutline,
-} from '@vicons/ionicons5'
+import { SearchOutline, PricetagsOutline } from '@vicons/ionicons5'
 import { search } from '@/api/search'
 import type { DocumentSearchResult, FragmentSearchResult } from '@/api/search'
 import { useTagData } from '@/composables/useTagData'
+import SearchResultItem from './SearchResultItem.vue'
+import SearchPreviewPanel from './SearchPreviewPanel.vue'
+
+type SearchItem =
+  | { type: 'document'; data: DocumentSearchResult }
+  | { type: 'fragment'; data: FragmentSearchResult }
 
 const message = useMessage()
 const themeVars = useThemeVars()
@@ -34,25 +34,38 @@ const searched = ref(false)
 const documents = ref<DocumentSearchResult[]>([])
 const fragments = ref<FragmentSearchResult[]>([])
 const resultRef = ref<HTMLElement>()
-const heroInputRef = ref<HTMLInputElement>()
-const topbarInputRef = ref<HTMLInputElement>()
+const selectedItem = ref<SearchItem | null>(null)
 
-const hasResults = computed(() => documents.value.length > 0 || fragments.value.length > 0)
-const totalCount = computed(() => documents.value.length + fragments.value.length)
+const mergedResults = computed<SearchItem[]>(() => {
+  const items: SearchItem[] = []
+  for (const doc of documents.value) {
+    items.push({ type: 'document', data: doc })
+  }
+  for (const frag of fragments.value) {
+    items.push({ type: 'fragment', data: frag })
+  }
+  return items
+})
+
+const hasResults = computed(() => mergedResults.value.length > 0)
+const totalCount = computed(() => mergedResults.value.length)
 const selectedTagCount = computed(() => filterTagIds.value.length)
 
-function getTagColor(tagName: string) {
-  const tag = allTags.value.find((t) => t.name === tagName)
-  return tag ? tag.color : '#86909c'
+function getItemId(item: SearchItem) {
+  return item.type === 'document'
+    ? `doc-${(item.data as DocumentSearchResult).documentId}`
+    : `frag-${(item.data as FragmentSearchResult).fragmentId}`
+}
+
+function isSelected(item: SearchItem) {
+  if (!selectedItem.value) return false
+  return getItemId(item) === getItemId(selectedItem.value)
 }
 
 function toggleTag(id: number) {
   const idx = filterTagIds.value.indexOf(id)
-  if (idx >= 0) {
-    filterTagIds.value.splice(idx, 1)
-  } else {
-    filterTagIds.value.push(id)
-  }
+  if (idx >= 0) filterTagIds.value.splice(idx, 1)
+  else filterTagIds.value.push(id)
 }
 
 function clearTags() {
@@ -68,6 +81,7 @@ async function handleSearch() {
 
   loading.value = true
   searched.value = true
+  selectedItem.value = null
   try {
     const res = await search(
       kw,
@@ -92,13 +106,24 @@ function handleReset() {
   searched.value = false
   documents.value = []
   fragments.value = []
+  selectedItem.value = null
 }
 
 function handleInputKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter') {
-    handleSearch()
-  }
+  if (e.key === 'Enter') handleSearch()
 }
+
+function selectItem(item: SearchItem) {
+  selectedItem.value = item
+}
+
+function closePreview() {
+  selectedItem.value = null
+}
+
+watch(searched, (val) => {
+  if (!val) closePreview()
+})
 </script>
 
 <template>
@@ -111,7 +136,6 @@ function handleInputKeydown(e: KeyboardEvent) {
         <div class="search-box search-box--lg">
           <NIcon :component="SearchOutline" :size="20" class="search-box__prefix" />
           <input
-            ref="heroInputRef"
             v-model="keyword"
             class="search-box__input"
             placeholder="输入关键词开始检索..."
@@ -187,8 +211,8 @@ function handleInputKeydown(e: KeyboardEvent) {
       </div>
     </Transition>
 
-    <!-- 结果态：顶部搜索栏 + 结果列表 -->
-    <template v-if="searched">
+    <!-- 结果态 -->
+    <div v-if="searched" class="search-card">
       <div class="topbar">
         <span class="topbar__brand" :style="{ color: themeVars.primaryColor }" @click="handleReset">
           拾知
@@ -196,7 +220,6 @@ function handleInputKeydown(e: KeyboardEvent) {
         <div class="search-box search-box--sm">
           <NIcon :component="SearchOutline" :size="16" class="search-box__prefix" />
           <input
-            ref="topbarInputRef"
             v-model="keyword"
             class="search-box__input"
             placeholder="输入关键词检索..."
@@ -273,102 +296,42 @@ function handleInputKeydown(e: KeyboardEvent) {
         </NTag>
       </div>
 
-      <div ref="resultRef" class="results-container">
-        <NSpin :show="loading" style="min-height: 200px">
-          <div v-if="!loading && !hasResults" class="no-results">
-            <NEmpty description="未找到匹配内容，试试其他关键词" />
-          </div>
-
-          <div v-else-if="!loading" class="results">
-            <p class="results__summary">
-              找到 <strong>{{ totalCount }}</strong> 条相关结果
-            </p>
-
-            <div v-if="documents.length > 0" class="result-section">
-              <div class="result-section__header">
-                <NIcon :component="DocumentTextOutline" :size="18" />
-                <span>文档知识</span>
-                <NTag size="small" round>{{ documents.length }}</NTag>
-              </div>
+      <div class="results-body">
+        <div ref="resultRef" class="results-panel">
+          <NSpin :show="loading" style="min-height: 200px">
+            <div v-if="!loading && !hasResults" class="no-results">
+              <NEmpty description="未找到匹配内容，试试其他关键词" />
+            </div>
+            <div v-else-if="!loading" class="results">
+              <p class="results__summary">
+                找到 <strong>{{ totalCount }}</strong> 条相关结果
+              </p>
               <div class="result-list">
-                <div v-for="doc in documents" :key="doc.documentId" class="result-card">
-                  <div class="result-card__header">
-                    <span
-                      v-if="doc.titleHighlight"
-                      class="result-card__title"
-                      v-html="doc.titleHighlight"
-                    />
-                    <span v-else class="result-card__title">{{ doc.title }}</span>
-                    <span class="result-card__file">{{ doc.fileName }}</span>
-                  </div>
-                  <div
-                    v-if="doc.contentHighlights && doc.contentHighlights.length > 0"
-                    class="result-card__highlights"
-                  >
-                    <div
-                      v-for="(hl, idx) in doc.contentHighlights"
-                      :key="idx"
-                      class="result-card__highlight-item"
-                      v-html="'...' + hl + '...'"
-                    />
-                  </div>
-                  <div v-if="doc.tags && doc.tags.length > 0" class="result-card__tags">
-                    <NTag
-                      v-for="tagName in doc.tags"
-                      :key="tagName"
-                      size="tiny"
-                      round
-                      :color="{
-                        color: getTagColor(tagName) + '1A',
-                        textColor: getTagColor(tagName),
-                        borderColor: getTagColor(tagName),
-                      }"
-                    >
-                      {{ tagName }}
-                    </NTag>
-                  </div>
-                </div>
+                <SearchResultItem
+                  v-for="item in mergedResults"
+                  :key="getItemId(item)"
+                  :item="item"
+                  :selected="isSelected(item)"
+                  :style="{
+                    '--primary-color': themeVars.primaryColor,
+                    '--primary-color-60': themeVars.primaryColor + '60',
+                    '--primary-bg': themeVars.primaryColor + '0D',
+                    '--primary-bg-hover': themeVars.primaryColor + '14',
+                  }"
+                  @select="selectItem(item)"
+                />
               </div>
             </div>
+          </NSpin>
+        </div>
 
-            <NDivider v-if="documents.length > 0 && fragments.length > 0" />
-
-            <div v-if="fragments.length > 0" class="result-section">
-              <div class="result-section__header">
-                <NIcon :component="CutOutline" :size="18" />
-                <span>碎片知识</span>
-                <NTag size="small" round>{{ fragments.length }}</NTag>
-              </div>
-              <div class="result-list">
-                <div v-for="frag in fragments" :key="frag.fragmentId" class="result-card">
-                  <div class="result-card__header">
-                    <span class="result-card__title">{{ frag.title }}</span>
-                  </div>
-                  <div v-if="frag.content" class="result-card__content">
-                    {{ frag.content }}
-                  </div>
-                  <div v-if="frag.tags && frag.tags.length > 0" class="result-card__tags">
-                    <NTag
-                      v-for="tagName in frag.tags"
-                      :key="tagName"
-                      size="tiny"
-                      round
-                      :color="{
-                        color: getTagColor(tagName) + '1A',
-                        textColor: getTagColor(tagName),
-                        borderColor: getTagColor(tagName),
-                      }"
-                    >
-                      {{ tagName }}
-                    </NTag>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </NSpin>
+        <SearchPreviewPanel
+          v-if="selectedItem"
+          :item="selectedItem"
+          @close="closePreview"
+        />
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -377,10 +340,26 @@ function handleInputKeydown(e: KeyboardEvent) {
   min-height: calc(100vh - 10rem);
   display: flex;
   flex-direction: column;
+}
+
+.search-page--has-results {
+  height: calc(100vh - 10rem);
+  max-height: calc(100vh - 10rem);
   overflow: hidden;
 }
 
-/* ===== 初始态：居中 Hero ===== */
+.search-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--n-border-color, #e5e6eb);
+  border-radius: 0 0.5rem 0.5rem 0.5rem;
+}
+
+/* ===== Hero ===== */
 .hero {
   flex: 1;
   display: flex;
@@ -413,7 +392,7 @@ function handleInputKeydown(e: KeyboardEvent) {
   max-width: 580px;
 }
 
-/* ===== 搜索框（共用） ===== */
+/* ===== 搜索框 ===== */
 .search-box {
   display: flex;
   align-items: center;
@@ -565,7 +544,7 @@ function handleInputKeydown(e: KeyboardEvent) {
   color: #c9cdd4;
 }
 
-/* ===== 结果态：顶部搜索栏 ===== */
+/* ===== 顶部搜索栏 ===== */
 .topbar {
   display: flex;
   align-items: center;
@@ -606,9 +585,17 @@ function handleInputKeydown(e: KeyboardEvent) {
   flex-shrink: 0;
 }
 
-/* ===== 结果区域 ===== */
-.results-container {
+/* ===== 结果主体 ===== */
+.results-body {
   flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.results-panel {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 20px 24px 40px;
 }
@@ -618,107 +605,19 @@ function handleInputKeydown(e: KeyboardEvent) {
 }
 
 .results {
-  max-width: 780px;
+  max-width: 680px;
 }
 
 .results__summary {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   font-size: 13px;
   color: #86909c;
-}
-
-/* ===== 结果区块 ===== */
-.result-section__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1d2129;
 }
 
 .result-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.result-card {
-  padding: 16px 18px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-
-.result-card:hover {
-  border-color: #e0e0e0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.result-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.result-card__title {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1d2129;
-}
-
-.result-card__title :deep(mark) {
-  background: #fff3b0;
-  color: inherit;
-  padding: 0 1px;
-  border-radius: 2px;
-}
-
-.result-card__file {
-  font-size: 12px;
-  color: #86909c;
-  flex-shrink: 0;
-}
-
-.result-card__highlights {
-  margin-top: 8px;
-}
-
-.result-card__highlight-item {
-  font-size: 13px;
-  line-height: 1.8;
-  color: #4e5969;
-  padding: 4px 0;
-}
-
-.result-card__highlight-item + .result-card__highlight-item {
-  border-top: 1px dashed #e5e6eb;
-}
-
-.result-card__highlight-item :deep(mark) {
-  background: #fff3b0;
-  color: inherit;
-  padding: 0 1px;
-  border-radius: 2px;
-}
-
-.result-card__content {
-  margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.8;
-  color: #4e5969;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.result-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 4px;
 }
 
 /* ===== 过渡动画 ===== */

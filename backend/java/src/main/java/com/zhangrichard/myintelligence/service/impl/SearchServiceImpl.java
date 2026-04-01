@@ -3,6 +3,7 @@ package com.zhangrichard.myintelligence.service.impl;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HighlightField;
@@ -122,6 +123,7 @@ public class SearchServiceImpl implements SearchService {
                         .field("title")
                         .query(keyword)
                         .analyzer("ik_smart")
+                        .operator(Operator.And)
                         .boost(5.0f)))
                 .should(s -> s.matchPhrase(mp -> mp
                         .field("content")
@@ -131,6 +133,7 @@ public class SearchServiceImpl implements SearchService {
                         .field("content")
                         .query(keyword)
                         .analyzer("ik_smart")
+                        .operator(Operator.And)
                         .boost(1.0f)))));
 
         if (tagNames != null && !tagNames.isEmpty()) {
@@ -155,12 +158,14 @@ public class SearchServiceImpl implements SearchService {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("fragmentId", f.getId());
             item.put("title", f.getTitle());
+            item.put("titleHighlight", highlightKeyword(f.getTitle(), keyword));
 
             String content = f.getContent();
             if (content != null && content.length() > 200) {
                 content = content.substring(0, 200) + "...";
             }
             item.put("content", content);
+            item.put("contentHighlight", highlightKeyword(content, keyword));
 
             item.put("tags", f.getTags().stream()
                     .map(Tag::getName)
@@ -168,6 +173,27 @@ public class SearchServiceImpl implements SearchService {
 
             return item;
         }).collect(Collectors.toList());
+    }
+
+    private String highlightKeyword(String text, String keyword) {
+        if (text == null || text.isEmpty() || keyword == null || keyword.isEmpty()) {
+            return text;
+        }
+        String lowerText = text.toLowerCase();
+        String lowerKw = keyword.toLowerCase();
+        StringBuilder sb = new StringBuilder();
+        int idx = 0;
+        while (idx < text.length()) {
+            int pos = lowerText.indexOf(lowerKw, idx);
+            if (pos < 0) {
+                sb.append(text, idx, text.length());
+                break;
+            }
+            sb.append(text, idx, pos);
+            sb.append("<mark>").append(text, pos, pos + keyword.length()).append("</mark>");
+            idx = pos + keyword.length();
+        }
+        return sb.toString();
     }
 
     private List<String> resolveTagNames(List<Long> tagIds) {

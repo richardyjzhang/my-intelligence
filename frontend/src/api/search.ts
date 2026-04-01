@@ -15,6 +15,8 @@ export interface FragmentSearchResult {
   title: string
   content: string
   tags: string[]
+  titleHighlight?: string
+  contentHighlight?: string
 }
 
 export interface SearchResult {
