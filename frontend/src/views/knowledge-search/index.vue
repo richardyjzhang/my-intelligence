@@ -128,92 +128,93 @@ watch(searched, (val) => {
 
 <template>
   <div class="search-page" :class="{ 'search-page--has-results': searched }">
-    <!-- 初始态：居中的搜索首页 -->
-    <Transition name="hero-fade">
-      <div v-if="!searched" class="hero">
-        <h1 class="hero__title" :style="{ color: themeVars.primaryColor }">拾知</h1>
-        <p class="hero__subtitle">从文档与碎片知识中，快速检索你需要的内容</p>
-        <div class="search-box search-box--lg">
-          <NIcon :component="SearchOutline" :size="20" class="search-box__prefix" />
-          <input
-            v-model="keyword"
-            class="search-box__input"
-            placeholder="输入关键词开始检索..."
-            @keydown="handleInputKeydown"
-          />
-          <div class="search-box__actions">
-            <NPopover trigger="click" placement="bottom-end" :width="240">
-              <template #trigger>
-                <NBadge :value="selectedTagCount" :show="selectedTagCount > 0" :offset="[-4, 2]">
-                  <button class="search-box__icon-btn" title="按标签筛选">
-                    <NIcon :component="PricetagsOutline" :size="18" />
-                  </button>
-                </NBadge>
-              </template>
-              <div class="tag-popover">
-                <div class="tag-popover__header">
-                  <span>按标签筛选</span>
-                  <NButton text size="tiny" :disabled="selectedTagCount === 0" @click="clearTags">
-                    清除
-                  </NButton>
-                </div>
-                <div class="tag-popover__list">
-                  <div
-                    v-for="tag in allTags"
-                    :key="tag.id"
-                    class="tag-popover__item"
-                    @click="toggleTag(tag.id)"
-                  >
-                    <NCheckbox :checked="filterTagIds.includes(tag.id)" style="pointer-events: none" />
-                    <NTag
-                      size="small"
-                      round
-                      :color="{
-                        color: tag.color + '1A',
-                        textColor: tag.color,
-                        borderColor: tag.color,
-                      }"
-                    >
-                      {{ tag.name }}
-                    </NTag>
+    <div class="search-card">
+      <!-- 初始态：卡片内居中的搜索首页 -->
+      <Transition name="hero-fade">
+        <div v-if="!searched" class="hero">
+          <h1 class="hero__title" :style="{ color: themeVars.primaryColor }">拾 知</h1>
+          <p class="hero__subtitle">从文档与碎片知识中，快速检索你需要的内容</p>
+          <div class="search-box search-box--lg">
+            <NIcon :component="SearchOutline" :size="20" class="search-box__prefix" />
+            <input
+              v-model="keyword"
+              class="search-box__input"
+              placeholder="输入关键词开始检索..."
+              @keydown="handleInputKeydown"
+            />
+            <div class="search-box__actions">
+              <NPopover trigger="click" placement="bottom-end" :width="240">
+                <template #trigger>
+                  <NBadge :value="selectedTagCount" :show="selectedTagCount > 0" :offset="[-4, 2]">
+                    <button class="search-box__icon-btn" title="按标签筛选">
+                      <NIcon :component="PricetagsOutline" :size="18" />
+                    </button>
+                  </NBadge>
+                </template>
+                <div class="tag-popover">
+                  <div class="tag-popover__header">
+                    <span>按标签筛选</span>
+                    <NButton text size="tiny" :disabled="selectedTagCount === 0" @click="clearTags">
+                      清除
+                    </NButton>
                   </div>
-                  <div v-if="allTags.length === 0" class="tag-popover__empty">暂无标签</div>
+                  <div class="tag-popover__list">
+                    <div
+                      v-for="tag in allTags"
+                      :key="tag.id"
+                      class="tag-popover__item"
+                      @click="toggleTag(tag.id)"
+                    >
+                      <NCheckbox :checked="filterTagIds.includes(tag.id)" style="pointer-events: none" />
+                      <NTag
+                        size="small"
+                        round
+                        :color="{
+                          color: tag.color + '1A',
+                          textColor: tag.color,
+                          borderColor: tag.color,
+                        }"
+                      >
+                        {{ tag.name }}
+                      </NTag>
+                    </div>
+                    <div v-if="allTags.length === 0" class="tag-popover__empty">暂无标签</div>
+                  </div>
                 </div>
-              </div>
-            </NPopover>
-            <div class="search-box__divider" />
-            <button
-              class="search-box__search-btn"
-              :style="{ background: themeVars.primaryColor }"
-              :disabled="loading"
-              @click="handleSearch"
+              </NPopover>
+              <div class="search-box__divider" />
+              <button
+                class="search-box__search-btn"
+                :style="{ background: themeVars.primaryColor }"
+                :disabled="loading"
+                @click="handleSearch"
+              >
+                <NIcon :component="SearchOutline" :size="18" color="#fff" />
+              </button>
+            </div>
+          </div>
+          <div v-if="selectedTagCount > 0" class="hero__selected-tags">
+            <NTag
+              v-for="tagId in filterTagIds"
+              :key="tagId"
+              size="small"
+              round
+              closable
+              :color="(() => {
+                const t = allTags.find(t => t.id === tagId)
+                return t ? { color: t.color + '1A', textColor: t.color, borderColor: t.color } : undefined
+              })()"
+              @close="toggleTag(tagId)"
             >
-              <NIcon :component="SearchOutline" :size="18" color="#fff" />
-            </button>
+              {{ allTags.find(t => t.id === tagId)?.name }}
+            </NTag>
           </div>
         </div>
-        <div v-if="selectedTagCount > 0" class="hero__selected-tags">
-          <NTag
-            v-for="tagId in filterTagIds"
-            :key="tagId"
-            size="small"
-            round
-            closable
-            :color="(() => {
-              const t = allTags.find(t => t.id === tagId)
-              return t ? { color: t.color + '1A', textColor: t.color, borderColor: t.color } : undefined
-            })()"
-            @close="toggleTag(tagId)"
-          >
-            {{ allTags.find(t => t.id === tagId)?.name }}
-          </NTag>
-        </div>
-      </div>
-    </Transition>
+      </Transition>
 
-    <!-- 结果态 -->
-    <div v-if="searched" class="search-card">
-      <div class="topbar">
+      <!-- 结果态 -->
+      <template v-if="searched">
+        <div class="topbar">
         <span class="topbar__brand" :style="{ color: themeVars.primaryColor }" @click="handleReset">
           拾知
         </span>
@@ -331,6 +332,7 @@ watch(searched, (val) => {
           @close="closePreview"
         />
       </div>
+      </template>
     </div>
   </div>
 </template>
@@ -350,24 +352,34 @@ watch(searched, (val) => {
 
 .search-card {
   flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--n-border-color, #e5e6eb);
+  /* 与 NCard / common.cardColor 一致；勿用 --n-color（在 Layout 内是 body 灰底） */
+  background: v-bind('themeVars.cardColor');
+  border: 1px solid v-bind('themeVars.borderColor');
   border-radius: 0 0.5rem 0.5rem 0.5rem;
 }
 
-/* ===== Hero ===== */
+.search-page:not(.search-page--has-results) .search-card {
+  min-height: calc(100vh - 10rem);
+  overflow: visible;
+}
+
+.search-page--has-results .search-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ===== Hero（与结果态共用同一卡片底色）===== */
 .hero {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 24px 140px;
+  padding: 48px 24px 120px;
   gap: 4px;
+  min-height: 0;
 }
 
 .hero__title {
