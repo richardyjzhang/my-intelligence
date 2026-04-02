@@ -192,11 +192,10 @@ async function handleChangePassword() {
     <NLayoutHeader bordered class="app-topbar">
       <div class="app-topbar__left">
         <div class="app-topbar__logo">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="app-topbar__badge" style="color: var(--theme-primary, #008eaa)">
-            <rect width="32" height="32" rx="6" fill="currentColor"/>
-            <path d="M16 8C13 7 10 6.5 7 7v16c3-0.5 6 0 9 1V8Z" fill="rgba(255,255,255,0.9)"/>
-            <path d="M16 8c3-1 6-1.5 9-1v16c-3-0.5-6 0-9 1V8Z" fill="rgba(255,255,255,0.65)"/>
-            <path d="M16 8v16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="app-topbar__badge">
+            <rect width="32" height="32" rx="7" fill="#dceef5"/>
+            <path d="M16 7.5a5.5 5.5 0 0 1 5.5 5.5c0 2-1.1 3.5-2.7 4.4V18.5a2.8 2.8 0 0 1-5.6 0v-1.1C11.6 16.5 10.5 15 10.5 13A5.5 5.5 0 0 1 16 7.5Z" fill="#7ebad6" opacity="0.7"/>
+            <circle cx="16" cy="23.5" r="1.4" fill="#7ebad6" opacity="0.7"/>
           </svg>
           <span class="app-topbar__name">拾知 · 个人知识管理系统</span>
         </div>

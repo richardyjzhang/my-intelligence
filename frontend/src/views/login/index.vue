@@ -50,11 +50,10 @@ async function handleLogin() {
         style="background: rgba(255,255,255,0.55); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)"
       >
         <div class="flex flex-col items-center gap-2 mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="w-12 h-12" style="color: var(--theme-primary, #008eaa)">
-            <rect width="32" height="32" rx="6" fill="currentColor"/>
-            <path d="M16 8C13 7 10 6.5 7 7v16c3-0.5 6 0 9 1V8Z" fill="rgba(255,255,255,0.9)"/>
-            <path d="M16 8c3-1 6-1.5 9-1v16c-3-0.5-6 0-9 1V8Z" fill="rgba(255,255,255,0.65)"/>
-            <path d="M16 8v16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="w-12 h-12">
+            <rect width="32" height="32" rx="7" fill="#dceef5"/>
+            <path d="M16 7.5a5.5 5.5 0 0 1 5.5 5.5c0 2-1.1 3.5-2.7 4.4V18.5a2.8 2.8 0 0 1-5.6 0v-1.1C11.6 16.5 10.5 15 10.5 13A5.5 5.5 0 0 1 16 7.5Z" fill="#7ebad6" opacity="0.7"/>
+            <circle cx="16" cy="23.5" r="1.4" fill="#7ebad6" opacity="0.7"/>
           </svg>
           <h2 class="m-0 text-lg font-semibold text-gray-900">拾知 · 个人知识管理系统</h2>
         </div>
