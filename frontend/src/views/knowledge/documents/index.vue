@@ -8,6 +8,7 @@ import {
   NInput,
   NSpace,
   NTag,
+  NModal,
   useMessage,
   useDialog,
   type DataTableColumns,
@@ -20,6 +21,8 @@ import {
   DownloadOutline,
   EyeOutline,
   RefreshOutline,
+  ChatbubblesOutline,
+  InformationCircleOutline,
 } from '@vicons/ionicons5'
 import {
   getDocuments,
@@ -32,6 +35,7 @@ import {
 import type { DocumentInfo } from '@/api/document'
 import type { TagInfo } from '@/api/tag'
 import { useAuthStore } from '@/stores/auth'
+import { useAiChatStore } from '@/stores/aiChat'
 import { useTagData } from '@/composables/useTagData'
 import TagSelect from '../components/TagSelect.vue'
 import DocumentFormModal from './DocumentFormModal.vue'
@@ -40,6 +44,7 @@ import DocumentPreviewModal from '@/views/components/DocumentPreviewModal.vue'
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+const aiChatStore = useAiChatStore()
 const { allTags } = useTagData()
 
 const isAdmin = computed(() => authStore.isAdmin)
@@ -61,6 +66,9 @@ const editData = ref<DocumentInfo | null>(null)
 const showPreviewModal = ref(false)
 const previewUrl = ref('')
 const previewTitle = ref('')
+
+const showDetailModal = ref(false)
+const detailRow = ref<DocumentInfo | null>(null)
 
 function renderTags(tags: TagInfo[]) {
   if (!tags || tags.length === 0) return h('span', { style: { color: '#c9cdd4' } }, '—')
@@ -109,14 +117,6 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
       },
     },
     {
-      title: '发布时间',
-      key: 'publishDate',
-      width: 120,
-      render(row) {
-        return row.publishDate || '—'
-      },
-    },
-    {
       title: '状态',
       key: 'status',
       width: 100,
@@ -133,22 +133,6 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
       },
     },
     {
-      title: '文件',
-      key: 'fileName',
-      width: 160,
-      ellipsis: { tooltip: true },
-      render(row) {
-        return h('span', {}, [
-          row.fileName,
-          h(
-            'span',
-            { style: { color: '#86909c', marginLeft: '4px', fontSize: '12px' } },
-            `(${formatFileSize(row.fileSize)})`,
-          ),
-        ])
-      },
-    },
-    {
       title: '创建人',
       key: 'creator',
       width: 100,
@@ -157,17 +141,9 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
       },
     },
     {
-      title: '创建时间',
-      key: 'createTime',
-      width: 180,
-      render(row) {
-        return row.createTime ? row.createTime.replace('T', ' ') : ''
-      },
-    },
-    {
       title: '操作',
       key: 'actions',
-      width: isAdmin.value ? 400 : 160,
+      width: isAdmin.value ? 500 : 300,
       render(row) {
         const buttons: ReturnType<typeof h>[] = [
           h(
@@ -186,12 +162,21 @@ const columns = computed<DataTableColumns<DocumentInfo>>(() => {
               size: 'small',
               text: true,
               type: 'default',
-              tag: 'a',
-              href: getDownloadUrl(row.id),
-              target: '_blank',
+              onClick: () => openDetail(row),
               style: { marginLeft: '12px' },
-            } as any,
-            { default: () => '下载', icon: () => h(NIcon, { component: DownloadOutline }) },
+            },
+            { default: () => '详情', icon: () => h(NIcon, { component: InformationCircleOutline }) },
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              text: true,
+              type: 'default',
+              onClick: () => aiChatStore.openDiscussDocument(row.id, row.title),
+              style: { marginLeft: '12px' },
+            },
+            { default: () => '讨论', icon: () => h(NIcon, { component: ChatbubblesOutline }) },
           ),
         ]
 
@@ -265,6 +250,25 @@ function handlePreview(row: DocumentInfo) {
   previewTitle.value = row.title
   previewUrl.value = getPreviewUrl(row.id)
   showPreviewModal.value = true
+}
+
+function openDetail(row: DocumentInfo) {
+  detailRow.value = row
+  showDetailModal.value = true
+}
+
+function clearDetail() {
+  detailRow.value = null
+}
+
+function formatDateTime(s: string | null | undefined) {
+  if (!s) return '—'
+  return s.replace('T', ' ')
+}
+
+function detailStatusLabel(status: number) {
+  const info = STATUS_MAP[status]
+  return info ? info.label : String(status)
 }
 
 function handleCreate() {
@@ -370,5 +374,181 @@ onMounted(() => {
       :title="previewTitle"
       :url="previewUrl"
     />
+
+    <NModal
+      v-model:show="showDetailModal"
+      preset="card"
+      title="文档详情"
+      style="width: 640px; max-width: calc(100vw - 32px)"
+      :bordered="false"
+      :segmented="{ content: true, footer: 'soft' }"
+      @after-leave="clearDetail"
+    >
+      <div v-if="detailRow" class="doc-detail">
+        <h3 class="doc-detail__title">{{ detailRow.title }}</h3>
+        <dl class="doc-detail__list">
+          <div class="doc-detail__row">
+            <dt>文号</dt>
+            <dd>{{ detailRow.code || '—' }}</dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>状态</dt>
+            <dd>
+              <NTag
+                v-if="STATUS_MAP[detailRow.status]"
+                size="small"
+                round
+                :type="STATUS_MAP[detailRow.status]!.type"
+              >
+                {{ detailStatusLabel(detailRow.status) }}
+              </NTag>
+              <span v-else>{{ detailRow.status }}</span>
+            </dd>
+          </div>
+          <div class="doc-detail__row doc-detail__row--tags">
+            <dt>标签</dt>
+            <dd>
+              <NSpace v-if="detailRow.tags?.length" :size="6" wrap>
+                <NTag
+                  v-for="tag in detailRow.tags"
+                  :key="tag.id"
+                  size="small"
+                  round
+                  :color="{
+                    color: tag.color + '1A',
+                    textColor: tag.color,
+                    borderColor: tag.color,
+                  }"
+                >
+                  {{ tag.name }}
+                </NTag>
+              </NSpace>
+              <span v-else class="doc-detail__muted">—</span>
+            </dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>发布时间</dt>
+            <dd>{{ detailRow.publishDate || '—' }}</dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>原文链接</dt>
+            <dd>
+              <a
+                v-if="detailRow.url"
+                class="doc-detail__link"
+                :href="detailRow.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >{{ detailRow.url }}</a>
+              <span v-else class="doc-detail__muted">—</span>
+            </dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>文件名</dt>
+            <dd>
+              {{ detailRow.fileName }}
+              <span class="doc-detail__muted">（{{ formatFileSize(detailRow.fileSize) }}）</span>
+            </dd>
+          </div>
+          <div class="doc-detail__row doc-detail__row--remark">
+            <dt>备注</dt>
+            <dd>{{ detailRow.remark || '—' }}</dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>创建人</dt>
+            <dd>
+              {{ detailRow.creator?.nickname || '—' }}
+              <span v-if="detailRow.creator?.username" class="doc-detail__muted">
+                （{{ detailRow.creator.username }}）
+              </span>
+            </dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>创建时间</dt>
+            <dd>{{ formatDateTime(detailRow.createTime) }}</dd>
+          </div>
+          <div class="doc-detail__row">
+            <dt>更新时间</dt>
+            <dd>{{ formatDateTime(detailRow.updateTime) }}</dd>
+          </div>
+        </dl>
+      </div>
+      <template #footer>
+        <div v-if="detailRow" class="doc-detail__footer">
+          <NButton
+            type="primary"
+            :disabled="!detailRow.filePath"
+            tag="a"
+            :href="detailRow.filePath ? getDownloadUrl(detailRow.id) : undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <template #icon>
+              <NIcon :component="DownloadOutline" />
+            </template>
+            下载
+          </NButton>
+        </div>
+      </template>
+    </NModal>
   </NCard>
 </template>
+
+<style scoped>
+.doc-detail__title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--n-text-color);
+  line-height: 1.4;
+}
+
+.doc-detail__list {
+  margin: 0;
+}
+
+.doc-detail__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--n-border-color);
+  font-size: 14px;
+  align-items: start;
+}
+
+.doc-detail__row--remark dd {
+  white-space: pre-wrap;
+}
+
+.doc-detail__link {
+  color: var(--theme-primary, #0084ff);
+  word-break: break-all;
+}
+
+.doc-detail__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.doc-detail__row:last-of-type {
+  border-bottom: none;
+}
+
+.doc-detail__row dt {
+  margin: 0;
+  color: var(--n-text-color-3);
+  font-weight: normal;
+}
+
+.doc-detail__row dd {
+  margin: 0;
+  color: var(--n-text-color);
+  word-break: break-all;
+}
+
+.doc-detail__muted {
+  color: var(--n-text-color-3);
+  font-size: 13px;
+}
+</style>

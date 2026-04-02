@@ -15,6 +15,7 @@ import {
   EyeOutline,
   DownloadOutline,
   LinkOutline,
+  ChatbubblesOutline,
 } from '@vicons/ionicons5'
 import { getDocument, getPreviewUrl, getDownloadUrl } from '@/api/document'
 import type { DocumentInfo } from '@/api/document'
@@ -22,6 +23,7 @@ import { getFragment } from '@/api/fragment'
 import type { FragmentInfo } from '@/api/fragment'
 import type { DocumentSearchResult, FragmentSearchResult } from '@/api/search'
 import DocumentPreviewModal from '@/views/components/DocumentPreviewModal.vue'
+import { useAiChatStore } from '@/stores/aiChat'
 
 type SearchItem =
   | { type: 'document'; data: DocumentSearchResult }
@@ -36,6 +38,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const aiChatStore = useAiChatStore()
 const loading = ref(false)
 const doc = ref<DocumentInfo | null>(null)
 const fragment = ref<FragmentInfo | null>(null)
@@ -58,6 +61,10 @@ function openFilePreview(d: DocumentInfo) {
   filePreviewTitle.value = d.title
   filePreviewUrl.value = getPreviewUrl(d.id)
   showFilePreview.value = true
+}
+
+function openDiscuss(d: DocumentInfo) {
+  aiChatStore.openDiscussDocument(d.id, d.title)
 }
 
 async function loadPreview() {
@@ -156,7 +163,13 @@ watch(() => props.item, () => {
               <p>{{ doc.remark }}</p>
             </div>
 
-            <div class="preview-actions">
+            <div class="preview-actions preview-actions--tint">
+              <NButton size="small" @click="openDiscuss(doc)">
+                <template #icon>
+                  <NIcon :component="ChatbubblesOutline" />
+                </template>
+                文档讨论
+              </NButton>
               <NButton
                 size="small"
                 :disabled="!doc.filePath"
@@ -249,7 +262,7 @@ watch(() => props.item, () => {
 
 <style scoped>
 .preview-panel {
-  width: 420px;
+  width: 560px;
   flex-shrink: 0;
   border-left: 1px solid #e5e6eb;
   background: #fafbfc;
@@ -343,8 +356,35 @@ watch(() => props.item, () => {
 
 .preview-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   margin-top: 8px;
+}
+
+.preview-actions :deep(.n-button) {
+  flex: 0 0 auto;
+}
+
+/* 淡主题色：浅底 + 细边框 + 主色字与图标 */
+.preview-actions--tint :deep(.n-button:not(:disabled)) {
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #0084ff) 38%, transparent);
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 9%, #fff);
+  color: var(--theme-primary, #0084ff);
+}
+
+.preview-actions--tint :deep(.n-button:not(:disabled):hover) {
+  border-color: color-mix(in srgb, var(--theme-primary, #0084ff) 52%, transparent);
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 15%, #fff);
+}
+
+.preview-actions--tint :deep(.n-button:not(:disabled):focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--theme-primary, #0084ff) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.preview-actions--tint :deep(.n-button:not(:disabled) .n-icon) {
+  color: var(--theme-primary, #0084ff);
 }
 
 .preview-fragment-content {

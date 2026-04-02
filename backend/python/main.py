@@ -43,11 +43,26 @@ def chat_stream():
     model = body.get("model")
     mode = body.get("mode")
 
+    document_id = None
+    raw_doc = body.get("documentId")
+    if raw_doc is not None:
+        try:
+            document_id = int(raw_doc)
+            if document_id <= 0:
+                document_id = None
+        except (TypeError, ValueError):
+            document_id = None
+
     def generate():
-        logger.info("开始生成 SSE 流: model=%s, mode=%s", model or config.CHAT_MODEL, mode)
+        logger.info(
+            "开始生成 SSE 流: model=%s, mode=%s, documentId=%s",
+            model or config.CHAT_MODEL,
+            mode,
+            document_id,
+        )
         event_count = 0
         try:
-            for event in chat_agent.chat_stream(query, history, model, mode):
+            for event in chat_agent.chat_stream(query, history, model, mode, document_id):
                 event_count += 1
                 yield event
             logger.info("SSE 流结束, 共发送 %s 个事件", event_count)

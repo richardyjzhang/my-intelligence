@@ -36,9 +36,12 @@ def chat_stream(
     history: list[dict] | None = None,
     model: str | None = None,
     mode: str | None = None,
+    document_id: int | None = None,
 ) -> Generator[str, None, None]:
     """
     流式对话入口。先发送 meta（含 intent），再转发子智能体事件。
+
+    若提供 document_id，固定为知识问答，不经过意图分类。
     """
     request_id = str(uuid.uuid4())
     history = history or []
@@ -52,7 +55,11 @@ def chat_stream(
         history_dropped = True
         logger.info("[%s] 已丢弃无关历史对话，仅使用当前问题", request_id)
 
-    intent = resolve_intent(mode, query, model)
+    if document_id is not None:
+        intent = "knowledge_qa"
+        logger.info("[%s] 单文档讨论 documentId=%s，固定 intent=knowledge_qa", request_id, document_id)
+    else:
+        intent = resolve_intent(mode, query, model)
     logger.info("[%s] 路由 intent=%s, mode=%s", request_id, intent, mode)
 
     meta_payload: dict = {
@@ -72,7 +79,7 @@ def chat_stream(
         for ev in doc_search_stream(query, history, model):
             yield ev
     else:
-        for ev in knowledge_stream(query, history, model):
+        for ev in knowledge_stream(query, history, model, document_id=document_id):
             yield ev
 
     if history_dropped:

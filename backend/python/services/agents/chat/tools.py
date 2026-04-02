@@ -12,16 +12,27 @@ logger = logging.getLogger(__name__)
 EXPAND_WINDOW = 3
 
 
-def retrieve_context(query: str, top_k: int = 5, max_distance: float = 1.2) -> list[dict]:
-    """从 ChromaDB 检索与问题相关的文档片段；距离超过阈值则视为不相关。"""
+def retrieve_context(
+    query: str,
+    top_k: int = 5,
+    max_distance: float = 1.2,
+    document_id: int | None = None,
+) -> list[dict]:
+    """从 ChromaDB 检索与问题相关的文档片段；距离超过阈值则视为不相关。
+
+    指定 document_id 时仅在对应文档的 chunk 内检索，不混入其他文档。
+    """
     try:
         collection = get_collection()
         query_embedding = get_embeddings([query])[0]
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
+        q_kw: dict = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if document_id is not None:
+            q_kw["where"] = {"documentId": document_id}
+        results = collection.query(**q_kw)
 
         contexts = []
         if results and results["documents"]:
@@ -68,13 +79,16 @@ def retrieve_context_expanded(
     top_k: int = 5,
     max_distance: float = 1.2,
     window: int = EXPAND_WINDOW,
+    document_id: int | None = None,
 ) -> list[dict]:
     """
     向量检索命中片段后，自动扩展同文档的前后相邻 chunk，
     返回文档级上下文列表（每篇文档一个条目，content 为拼接后的连续文本）。
     同时按 documentId 去重。
+
+    指定 document_id 时，检索与扩展均仅限该文档。
     """
-    hits = retrieve_context(query, top_k, max_distance)
+    hits = retrieve_context(query, top_k, max_distance, document_id=document_id)
     if not hits:
         return []
 
@@ -142,7 +156,11 @@ def retrieve_context_expanded(
     return results
 
 
-def build_user_content(query: str, contexts: list[dict]) -> str:
+def build_user_content(
+    query: str,
+    contexts: list[dict],
+    single_document_id: int | None = None,
+) -> str:
     """构建带知识上下文的用户消息内容。"""
     if not contexts:
         return query
@@ -152,13 +170,29 @@ def build_user_content(query: str, contexts: list[dict]) -> str:
         title = ctx.get("title", "未知文档")
         snippets.append(f"【参考{i}】来源：{title}\n{ctx['content']}")
     context_text = "\n\n---\n\n".join(snippets)
-    return f"以下是相关参考资料：\n\n{context_text}\n\n用户问题：{query}"
+    header = "以下是相关参考资料：\n\n"
+    if single_document_id is not None:
+        header = (
+            "【范围限定】本次问答仅围绕 documentId=%s 的同一篇文档；"
+            "下列【参考】均来自该文档。请只依据这些材料作答，不要在回答或引用列表中写出"
+            "未出现在下方参考资料中的其他文档名称。\n\n"
+        ) % single_document_id
+        header += "相关参考资料：\n\n"
+    return f"{header}{context_text}\n\n用户问题：{query}"
 
 
-def build_messages(query: str, contexts: list[dict], history: list[dict]) -> list[dict]:
+def build_messages(
+    query: str,
+    contexts: list[dict],
+    history: list[dict],
+    single_document_id: int | None = None,
+) -> list[dict]:
     """构建 OpenAI Chat API 格式的消息列表（不含 system）"""
     messages = []
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": build_user_content(query, contexts)})
+    messages.append({
+        "role": "user",
+        "content": build_user_content(query, contexts, single_document_id=single_document_id),
+    })
     return messages

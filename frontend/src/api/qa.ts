@@ -38,7 +38,7 @@ export function chatStream(
   query: string,
   history: ChatMessage[],
   callbacks: ChatStreamCallbacks,
-  options?: { mode?: ChatMode },
+  options?: { mode?: ChatMode; documentId?: number },
 ): AbortController {
   const controller = new AbortController()
   const token = localStorage.getItem(TOKEN_KEY) || ''
@@ -46,6 +46,9 @@ export function chatStream(
   const body: Record<string, unknown> = { query, history }
   if (options?.mode && options.mode !== 'auto') {
     body.mode = options.mode
+  }
+  if (options?.documentId != null && options.documentId > 0) {
+    body.documentId = options.documentId
   }
 
   fetch('/api/qa/stream', {

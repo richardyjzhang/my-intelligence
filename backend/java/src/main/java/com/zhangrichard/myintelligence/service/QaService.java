@@ -4,5 +4,5 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface QaService {
 
-    SseEmitter chatStream(String query, String historyJson, String mode);
+    SseEmitter chatStream(String query, String historyJson, String mode, Integer documentId);
 }

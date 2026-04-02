@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { NIcon, NButton } from 'naive-ui'
 import {
   ChatbubbleEllipsesOutline,
@@ -8,17 +9,20 @@ import {
   RemoveOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
+import { useAiChatStore } from '@/stores/aiChat'
 import AiChatWindow from './AiChatWindow.vue'
 
-const isOpen = ref(false)
+const aiChat = useAiChatStore()
+const { panelOpen } = storeToRefs(aiChat)
+
 const expanded = ref(false)
 const chatWindowRef = ref<InstanceType<typeof AiChatWindow> | null>(null)
 
 const hasMessages = computed(() => (chatWindowRef.value?.messages?.length ?? 0) > 0)
 
 function toggleOpen() {
-  isOpen.value = !isOpen.value
-  if (!isOpen.value) expanded.value = false
+  aiChat.setPanelOpen(!panelOpen.value)
+  if (!panelOpen.value) expanded.value = false
 }
 
 function toggleExpand() {
@@ -36,7 +40,7 @@ function toggleExpand() {
   <Teleport to="body">
     <Transition name="gchat-fab">
       <button
-        v-if="!isOpen"
+        v-if="!panelOpen"
         class="gchat-fab"
         aria-label="打开 AI 助手"
         @click="toggleOpen"
@@ -47,11 +51,11 @@ function toggleExpand() {
 
     <Transition name="gchat-panel">
       <div
-        v-show="isOpen"
+        v-show="panelOpen"
         class="gchat-panel"
         :class="{ 'gchat-panel--expanded': expanded }"
         :style="{ viewTransitionName: 'gchat-panel' }"
-        :aria-hidden="!isOpen"
+        :aria-hidden="!panelOpen"
       >
         <div class="gchat-header">
           <div class="gchat-header__left">
@@ -87,7 +91,7 @@ function toggleExpand() {
           </div>
         </div>
 
-        <AiChatWindow ref="chatWindowRef" :visible="isOpen" :expanded="expanded" />
+        <AiChatWindow ref="chatWindowRef" :visible="panelOpen" :expanded="expanded" />
       </div>
     </Transition>
   </Teleport>

@@ -2,6 +2,7 @@
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { NAvatar, NButton, NIcon, NSpin } from 'naive-ui'
 import {
+  ChatbubblesOutline,
   DocumentTextOutline,
   DownloadOutline,
   EyeOutline,
@@ -14,9 +15,11 @@ import { getDownloadUrl, getPreviewUrl } from '@/api/document'
 import DocumentPreviewModal from '@/views/components/DocumentPreviewModal.vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useAuthStore } from '@/stores/auth'
+import { useAiChatStore } from '@/stores/aiChat'
 import * as echarts from 'echarts'
 
 const authStore = useAuthStore()
+const aiChatStore = useAiChatStore()
 
 const userAvatarInitial = computed(() => {
   const n = authStore.user?.nickname?.trim()
@@ -139,6 +142,11 @@ function openSourcePreview(src: ChatSourceItem) {
   previewUrl.value = getPreviewUrl(src.documentId)
   previewShow.value = true
 }
+
+function openSourceDiscuss(src: ChatSourceItem) {
+  const title = (src.title && src.title.trim()) || `文档 #${src.documentId}`
+  aiChatStore.openDiscussDocument(src.documentId, title)
+}
 </script>
 
 <template>
@@ -233,6 +241,12 @@ function openSourcePreview(src: ChatSourceItem) {
                 </template>
                 预览
               </NButton>
+              <NButton text type="default" size="small" @click="openSourceDiscuss(src)">
+                <template #icon>
+                  <NIcon :component="ChatbubblesOutline" />
+                </template>
+                讨论
+              </NButton>
               <NButton
                 text
                 tag="a"
@@ -275,6 +289,12 @@ function openSourcePreview(src: ChatSourceItem) {
                   </template>
                   预览
                 </NButton>
+                <NButton text type="default" size="tiny" @click="openSourceDiscuss(src)">
+                  <template #icon>
+                    <NIcon :component="ChatbubblesOutline" :size="14" />
+                  </template>
+                  讨论
+                </NButton>
                 <NButton
                   text
                   tag="a"
@@ -313,6 +333,12 @@ function openSourcePreview(src: ChatSourceItem) {
                     <NIcon :component="EyeOutline" :size="14" />
                   </template>
                   预览
+                </NButton>
+                <NButton text type="default" size="tiny" @click="openSourceDiscuss(src)">
+                  <template #icon>
+                    <NIcon :component="ChatbubblesOutline" :size="14" />
+                  </template>
+                  讨论
                 </NButton>
                 <NButton
                   text
@@ -355,6 +381,12 @@ function openSourcePreview(src: ChatSourceItem) {
                 </template>
                 预览
               </NButton>
+              <NButton text type="default" size="tiny" @click="openSourceDiscuss(src)">
+                <template #icon>
+                  <NIcon :component="ChatbubblesOutline" :size="14" />
+                </template>
+                讨论
+              </NButton>
               <NButton
                 text
                 tag="a"
@@ -391,6 +423,12 @@ function openSourcePreview(src: ChatSourceItem) {
                   <NIcon :component="EyeOutline" :size="14" />
                 </template>
                 预览
+              </NButton>
+              <NButton text type="default" size="tiny" @click="openSourceDiscuss(src)">
+                <template #icon>
+                  <NIcon :component="ChatbubblesOutline" :size="14" />
+                </template>
+                讨论
               </NButton>
               <NButton
                 text
@@ -662,7 +700,7 @@ function openSourcePreview(src: ChatSourceItem) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.125rem;
+  gap: 0.35rem;
 }
 
 .gchat-msg__source-row-actions :deep(.n-button) {

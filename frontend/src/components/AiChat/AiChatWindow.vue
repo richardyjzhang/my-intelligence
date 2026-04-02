@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, ref, nextTick, watch, type Component } from 'vue'
-import { NIcon, NDropdown } from 'naive-ui'
+import { storeToRefs } from 'pinia'
+import { NIcon, NDropdown, NButton } from 'naive-ui'
 import {
   BookOutline,
   ChatbubbleEllipsesOutline,
@@ -16,6 +17,7 @@ import {
   type ChatMode,
   type ChatSourceItem,
 } from '@/api/qa'
+import { useAiChatStore } from '@/stores/aiChat'
 import ChatMessageItem from './ChatMessageItem.vue'
 
 export interface DisplayMessage {
@@ -36,6 +38,9 @@ export interface DisplayMessage {
 }
 
 const props = defineProps<{ visible: boolean; expanded: boolean }>()
+
+const aiChat = useAiChatStore()
+const { scopeDocument } = storeToRefs(aiChat)
 
 const inputText = ref('')
 const messages = ref<DisplayMessage[]>([])
@@ -62,6 +67,10 @@ const modeTriggerIcon = computed(() => modeIconByMode[chatMode.value])
 
 const modeTriggerTitle = computed(
   () => `当前：${MODE_LABELS[chatMode.value]}，点击切换`,
+)
+
+const streamMode = computed<ChatMode>(() =>
+  scopeDocument.value ? 'knowledge_qa' : chatMode.value,
 )
 
 const modeDropdownOptions = [
@@ -204,7 +213,7 @@ function handleSend() {
       isStreaming.value = false
       abortController.value = null
     },
-  }, { mode: chatMode.value })
+  }, { mode: streamMode.value, documentId: scopeDocument.value?.id })
 }
 
 function handleStop() {
@@ -221,6 +230,7 @@ function handleStop() {
 function handleClear() {
   if (isStreaming.value) handleStop()
   messages.value = []
+  aiChat.clearDocumentScope()
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -240,6 +250,15 @@ watch(
 watch(
   () => messages.value.length,
   () => scrollToBottom(),
+)
+
+watch(
+  scopeDocument,
+  (v, prev) => {
+    if (v && (!prev || v.id !== prev.id)) {
+      chatMode.value = 'knowledge_qa'
+    }
+  },
 )
 
 defineExpose({ handleClear, messages })
@@ -269,6 +288,13 @@ defineExpose({ handleClear, messages })
         :message="msg"
         :expanded="expanded"
       />
+    </div>
+
+    <div v-if="scopeDocument" class="gchat-scope-bar">
+      <span class="gchat-scope-bar__text">围绕文档：{{ scopeDocument.title }}</span>
+      <NButton text type="primary" size="tiny" @click="aiChat.clearDocumentScope()">
+        清除限定
+      </NButton>
     </div>
 
     <!-- 输入区 -->
@@ -398,6 +424,26 @@ defineExpose({ handleClear, messages })
 
 .gchat-empty__chip:hover {
   background: color-mix(in srgb, var(--theme-primary, #0084ff) 16%, transparent);
+}
+
+.gchat-scope-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--n-text-color-2, #4e5969);
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 6%, transparent);
+  border-top: 1px solid var(--n-border-color, #e5e6eb);
+}
+
+.gchat-scope-bar__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 输入区 ── */

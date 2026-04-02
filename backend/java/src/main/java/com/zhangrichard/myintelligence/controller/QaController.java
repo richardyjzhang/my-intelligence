@@ -33,6 +33,14 @@ public class QaController {
         }
         Object modeObj = body.get("mode");
         String mode = modeObj != null ? String.valueOf(modeObj) : null;
-        return qaService.chatStream(query, historyJson, mode);
+        Integer documentId = null;
+        Object docIdObj = body.get("documentId");
+        if (docIdObj instanceof Number) {
+            int v = ((Number) docIdObj).intValue();
+            if (v > 0) {
+                documentId = v;
+            }
+        }
+        return qaService.chatStream(query, historyJson, mode, documentId);
     }
 }

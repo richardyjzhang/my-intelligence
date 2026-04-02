@@ -127,6 +127,7 @@ def knowledge_stream(
     query: str,
     history: list[dict] | None = None,
     model: str | None = None,
+    document_id: int | None = None,
 ) -> Generator[str, None, None]:
     """
     流式问答，yield SSE 格式的事件行（不含 meta）。
@@ -135,11 +136,22 @@ def knowledge_stream(
     history = history or []
     model = model or getattr(config, "CHAT_MODEL", "qwen3:8b")
 
-    logger.info("[%s] 知识问答: query=%s, model=%s", request_id, query[:80], model)
+    logger.info(
+        "[%s] 知识问答: query=%s, model=%s, document_id=%s",
+        request_id,
+        query[:80],
+        model,
+        document_id,
+    )
 
     try:
         logger.info("[%s] 检索并扩展上下文...", request_id)
-        contexts = retrieve_context_expanded(query)
+        contexts = retrieve_context_expanded(query, document_id=document_id)
+        if document_id is not None:
+            contexts = [
+                c for c in contexts
+                if _doc_id_key(c) == document_id
+            ]
         if contexts:
             total_chars = sum(len(c.get("content", "")) for c in contexts)
             logger.info("[%s] 命中 %s 篇文档, 上下文总长 %s 字符", request_id, len(contexts), total_chars)
@@ -151,7 +163,8 @@ def knowledge_stream(
             for c in contexts
         ]
 
-        messages = build_messages(query, contexts, history)
+        single_doc = document_id if document_id is not None else None
+        messages = build_messages(query, contexts, history, single_document_id=single_doc)
         logger.info("[%s] 构建消息完成, 共 %s 条消息, 调用模型...", request_id, len(messages))
 
         reasoning_chunks = 0
@@ -168,6 +181,13 @@ def knowledge_stream(
 
         full_answer = "".join(full_answer_parts)
         cited_sources, related_sources, trim_suffix = _split_cited_sources(full_answer, sources)
+
+        if document_id is not None:
+            cited_sources = [
+                s for s in cited_sources
+                if _doc_id_key(s) == document_id
+            ]
+            related_sources = []
 
         done_payload: dict = {
             "citedSources": cited_sources,
