@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { NIcon, NSpin, NTag } from 'naive-ui'
+import { NAvatar, NIcon, NSpin, NTag } from 'naive-ui'
 import { DocumentTextOutline, FolderOpenOutline, ReloadOutline } from '@vicons/ionicons5'
 import type { ChatIntent } from '@/api/qa'
 import { renderMarkdown } from '@/utils/markdown'
+import { useAuthStore } from '@/stores/auth'
 import * as echarts from 'echarts'
+
+const authStore = useAuthStore()
+
+const userAvatarInitial = computed(() => {
+  const n = authStore.user?.nickname?.trim()
+  const u = authStore.user?.username?.trim()
+  const s = (n || u || '我').slice(0, 1)
+  return s || '我'
+})
 
 interface DisplayMessage {
   id: string
@@ -110,6 +120,22 @@ function handleResize() {
     }"
     :data-msg-id="message.id"
   >
+    <div
+      v-if="expanded && message.role === 'assistant'"
+      class="gchat-msg__avatar gchat-msg__avatar--assistant"
+      aria-hidden="true"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="gchat-msg__avatar-ai">
+        <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15" />
+        <path
+          d="M12 6a4 4 0 0 1 4 4c0 1.5-.8 2.5-2 3.2V14a2 2 0 0 1-4 0v-.8C8.8 12.5 8 11.5 8 10a4 4 0 0 1 4-4Z"
+          fill="currentColor"
+          opacity="0.75"
+        />
+        <circle cx="12" cy="17.5" r="1" fill="currentColor" />
+      </svg>
+    </div>
+
     <div class="gchat-msg__body">
       <!-- 思考过程 -->
       <details
@@ -202,6 +228,21 @@ function handleResize() {
         </NTag>
       </div>
     </div>
+
+    <div v-if="expanded && message.role === 'user'" class="gchat-msg__avatar gchat-msg__avatar--user">
+      <NAvatar
+        round
+        :size="34"
+        :style="{
+          backgroundColor: 'color-mix(in srgb, var(--theme-primary, #0084ff) 88%, #fff)',
+          color: '#fff',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+        }"
+      >
+        {{ userAvatarInitial }}
+      </NAvatar>
+    </div>
   </div>
 </template>
 
@@ -229,6 +270,35 @@ function handleResize() {
 
 .gchat-msg--expanded .gchat-msg__body {
   max-width: 70%;
+}
+
+.gchat-msg__avatar {
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 0.125rem;
+}
+
+.gchat-msg__avatar--assistant {
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-primary, #0084ff);
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 12%, var(--n-color-modal, #fafafc));
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #0084ff) 22%, transparent);
+}
+
+.gchat-msg__avatar-ai {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+}
+
+.gchat-msg__avatar--user {
+  display: flex;
+  align-items: flex-start;
 }
 
 /* ── 思考区 ── */
