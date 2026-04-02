@@ -51,3 +51,20 @@ def delete_document(document_id: int):
         logger.info("ES 文档已删除: documentId=%s", document_id)
     except Exception as e:
         logger.warning("ES 删除文档失败: documentId=%s, error=%s", document_id, e)
+
+
+def get_document_content(document_id: int) -> str | None:
+    """按 documentId 读取 ES 中的全文 content；不存在或失败时返回 None。"""
+    client = get_client()
+    try:
+        result = client.get(
+            index=INDEX_NAME,
+            id=str(document_id),
+            source_includes=["content"],
+        )
+        src = result.get("_source") or {}
+        content = src.get("content")
+        return content if isinstance(content, str) else None
+    except Exception as e:
+        logger.warning("ES 读取文档正文失败: documentId=%s, error=%s", document_id, e)
+        return None

@@ -14,16 +14,16 @@ from typing import Generator
 import config
 from services.agents import sse_event
 from services.ai import ai_client, register_agent, AgentProfile
-from .tools import retrieve_context, build_messages
+from .tools import retrieve_context_expanded, build_messages
 
 logger = logging.getLogger(__name__)
 
 AGENT_ID = "knowledge"
 
-SYSTEM_PROMPT = """你是"拾知"知识管理系统的 AI 助手。请基于提供的知识片段回答用户问题。
+SYSTEM_PROMPT = """你是"拾知"知识管理系统的 AI 助手。请基于提供的参考文档内容回答用户问题。
 
 规则：
-1. 优先使用知识片段中的内容回答，如果知识片段不足以回答，可以结合你的通用知识进行补充，但需注明。
+1. 优先使用参考文档中的内容回答，如果参考文档不足以回答，可以结合你的通用知识进行补充，但需注明。
 2. 回答使用 Markdown 格式。
 3. 如果用户要求生成图表，请在回答中包含一个 ECharts 配置块，格式为：
    ```echarts
@@ -55,11 +55,11 @@ def knowledge_stream(
     logger.info("[%s] 知识问答: query=%s, model=%s", request_id, query[:80], model)
 
     try:
-        logger.info("[%s] 检索知识片段...", request_id)
-        contexts = retrieve_context(query)
+        logger.info("[%s] 检索并扩展上下文...", request_id)
+        contexts = retrieve_context_expanded(query)
         if contexts:
-            distances = [f"{c['distance']:.4f}" for c in contexts if c.get("distance") is not None]
-            logger.info("[%s] 检索到 %s 个片段, distances=%s", request_id, len(contexts), distances)
+            total_chars = sum(len(c.get("content", "")) for c in contexts)
+            logger.info("[%s] 命中 %s 篇文档, 上下文总长 %s 字符", request_id, len(contexts), total_chars)
         else:
             logger.info("[%s] 未检索到相关片段，将直接回答", request_id)
 
