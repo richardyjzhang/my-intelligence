@@ -211,6 +211,17 @@ class AIClient:
 
         return content, "\n".join(thinking_parts) if thinking_parts else ""
 
+    # ── thinking_budget → extra_body ──
+
+    @staticmethod
+    def _build_extra_body(agent: AgentProfile) -> dict | None:
+        """根据智能体配置构建 extra_body，控制推理模型的思考行为。"""
+        if agent.thinking_disabled:
+            return {"enable_thinking": False}
+        if agent.thinking_budget:
+            return {"thinking_budget": agent.thinking_budget}
+        return None
+
     # ── 核心调用 ──
 
     def chat(
@@ -244,13 +255,23 @@ class AIClient:
         if tools:
             openai_tools = tools if _is_openai_tool_format(tools) else _convert_tools_anthropic_to_openai(tools)
             create_kw["tools"] = openai_tools
+        extra_body = self._build_extra_body(agent)
+        if extra_body:
+            create_kw["extra_body"] = extra_body
 
         response = self._client.chat.completions.create(**create_kw)
 
         choice = response.choices[0]
         raw_content = choice.message.content or ""
 
-        content, thinking = self._strip_think_tags(raw_content)
+        # 优先从 reasoning_content 字段获取思考内容（SiliconFlow / DeepSeek 等）
+        reasoning = getattr(choice.message, "reasoning_content", None) or ""
+        if reasoning:
+            thinking = reasoning
+            content = raw_content if raw_content else reasoning
+        else:
+            content, thinking = self._strip_think_tags(raw_content)
+
         if thinking and on_thinking_delta:
             on_thinking_delta(thinking)
 
@@ -307,6 +328,8 @@ class AIClient:
         final_model = ""
         all_thinking = ""
 
+        extra_body = self._build_extra_body(agent)
+
         for _ in range(max_rounds):
             create_kw: dict = {
                 "model": r_model,
@@ -315,6 +338,8 @@ class AIClient:
                 "messages": msgs,
                 "tools": openai_tools,
             }
+            if extra_body:
+                create_kw["extra_body"] = extra_body
 
             response = self._client.chat.completions.create(**create_kw)
 
@@ -325,7 +350,14 @@ class AIClient:
                 total_usage["output_tokens"] += response.usage.completion_tokens
 
             raw_content = choice.message.content or ""
-            if raw_content:
+            reasoning = getattr(choice.message, "reasoning_content", None) or ""
+            if reasoning:
+                content_text = raw_content
+                if reasoning:
+                    all_thinking += reasoning + "\n"
+                    if on_thinking:
+                        on_thinking(reasoning)
+            elif raw_content:
                 content_text, thinking_text = self._strip_think_tags(raw_content)
                 if thinking_text:
                     all_thinking += thinking_text + "\n"
@@ -402,6 +434,7 @@ class AIClient:
         流式对话（生成器），yield (event_type, text) 元组。
 
         event_type 为 "thinking" 或 "text"，调用方据此决定如何处理。
+        支持两种思考输出：reasoning_content 字段（SiliconFlow 等）和 <think> 标签（Ollama）。
         """
         if not self.is_available:
             raise RuntimeError("AI 客户端未初始化，请检查配置")
@@ -413,14 +446,20 @@ class AIClient:
         system = system_prompt_override or agent.system_prompt
         full_messages = self._build_messages_with_system(system, messages)
 
-        stream = self._client.chat.completions.create(
-            model=r_model,
-            max_tokens=r_max_tokens,
-            temperature=r_temp,
-            messages=full_messages,
-            stream=True,
-        )
+        create_kw: dict = {
+            "model": r_model,
+            "max_tokens": r_max_tokens,
+            "temperature": r_temp,
+            "messages": full_messages,
+            "stream": True,
+        }
+        extra_body = self._build_extra_body(agent)
+        if extra_body:
+            create_kw["extra_body"] = extra_body
 
+        stream = self._client.chat.completions.create(**create_kw)
+
+        had_reasoning_content = False
         tag_state = "detect"
         detect_buf = ""
 
@@ -428,8 +467,19 @@ class AIClient:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
+
+            # 优先检查 reasoning_content 字段（SiliconFlow / DeepSeek 等扩展）
+            reasoning = getattr(delta, "reasoning_content", None) or ""
+            if reasoning:
+                had_reasoning_content = True
+                yield ("thinking", reasoning)
+
             text = delta.content or ""
             if not text:
+                continue
+
+            if had_reasoning_content:
+                yield ("text", text)
                 continue
 
             yield from self._parse_think_tags(tag_state, detect_buf, text)
@@ -437,7 +487,7 @@ class AIClient:
                 tag_state, detect_buf, text
             )
 
-        if tag_state == "detect" and detect_buf:
+        if not had_reasoning_content and tag_state == "detect" and detect_buf:
             yield ("text", detect_buf)
 
 

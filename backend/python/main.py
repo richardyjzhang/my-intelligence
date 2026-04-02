@@ -11,7 +11,7 @@ from services import redis_service, mineru_service, es_service, chroma_service
 from services.agents.chat import router as chat_agent
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )

@@ -36,7 +36,7 @@ register_agent(AGENT_ID, AgentProfile(
     name="知识问答智能体",
     description="基于知识库的 RAG 问答",
     system_prompt=SYSTEM_PROMPT,
-    thinking_budget=1024,
+    thinking_disabled=True,
 ))
 
 

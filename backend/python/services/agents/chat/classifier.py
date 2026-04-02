@@ -29,7 +29,6 @@ register_agent(AGENT_ID, AgentProfile(
     description="对话意图分类",
     system_prompt=CLASSIFIER_PROMPT,
     thinking_disabled=True,
-    thinking_budget=0,
     max_tokens=80,
     temperature=0.0,
 ))
@@ -76,10 +75,12 @@ def classify_intent(query: str, model: str | None = None) -> str:
             max_tokens=80,
             temperature=0.0,
         )
+        logger.info("意图分类原始回复: query=%s -> content=%r", q[:80], resp.content[:200])
         intent = _parse_intent_json(resp.content)
         if intent:
-            logger.info("意图分类: query=%s -> %s", q[:80], intent)
+            logger.info("意图分类结果: %s -> %s", q[:80], intent)
             return intent
+        logger.warning("意图分类解析失败，原始内容: %r，使用 knowledge_qa", resp.content[:200])
     except Exception as e:
         logger.warning("意图分类失败，使用 knowledge_qa: %s", e)
 
