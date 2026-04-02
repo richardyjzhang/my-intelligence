@@ -24,7 +24,7 @@ public class QaServiceImpl implements QaService {
     private String pythonBaseUrl;
 
     @Override
-    public SseEmitter chatStream(String query, String historyJson) {
+    public SseEmitter chatStream(String query, String historyJson, String mode) {
         SseEmitter emitter = new SseEmitter(300_000L);
 
         new Thread(() -> {
@@ -33,6 +33,9 @@ public class QaServiceImpl implements QaService {
                 String requestBody = "{\"query\":" + escapeJson(query);
                 if (historyJson != null && !historyJson.isBlank()) {
                     requestBody += ",\"history\":" + historyJson;
+                }
+                if (mode != null && !mode.isBlank()) {
+                    requestBody += ",\"mode\":" + escapeJson(mode);
                 }
                 requestBody += "}";
 

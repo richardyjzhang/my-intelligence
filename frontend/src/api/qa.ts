@@ -1,15 +1,21 @@
 import { TOKEN_KEY } from '@/utils/request'
 
+export type ChatMode = 'auto' | 'casual' | 'doc_search' | 'knowledge_qa'
+
+export type ChatIntent = 'casual' | 'doc_search' | 'knowledge_qa'
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
 export interface ChatStreamCallbacks {
-  onMeta?: (data: { requestId: string; model: string }) => void
+  onMeta?: (data: { requestId: string; model: string; intent?: ChatIntent }) => void
   onReasoningDelta?: (content: string) => void
   onAnswerDelta?: (content: string) => void
-  onDone?: (data: { sources?: { title: string; documentId: number }[] }) => void
+  onDone?: (data: {
+    sources?: { title: string; documentId: number; fileName?: string }[]
+  }) => void
   onError?: (message: string) => void
 }
 
@@ -17,9 +23,15 @@ export function chatStream(
   query: string,
   history: ChatMessage[],
   callbacks: ChatStreamCallbacks,
+  options?: { mode?: ChatMode },
 ): AbortController {
   const controller = new AbortController()
   const token = localStorage.getItem(TOKEN_KEY) || ''
+
+  const body: Record<string, unknown> = { query, history }
+  if (options?.mode && options.mode !== 'auto') {
+    body.mode = options.mode
+  }
 
   fetch('/api/qa/stream', {
     method: 'POST',
@@ -27,7 +39,7 @@ export function chatStream(
       'Content-Type': 'application/json',
       Authorization: token,
     },
-    body: JSON.stringify({ query, history }),
+    body: JSON.stringify(body),
     signal: controller.signal,
   })
     .then(async (response) => {

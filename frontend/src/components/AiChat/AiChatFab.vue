@@ -176,6 +176,8 @@ function toggleExpand() {
   backdrop-filter: blur(16px) saturate(1.35);
   -webkit-backdrop-filter: blur(16px) saturate(1.35);
   font-size: calc(var(--n-font-size, 1rem) + 1px);
+  /* 与正文一致，避免输入行内文字与图标因行高不同而错位 */
+  line-height: 1.5;
 }
 
 /* ── 顶栏 ── */

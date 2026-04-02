@@ -31,6 +31,8 @@ public class QaController {
         if (historyObj != null) {
             historyJson = objectMapper.writeValueAsString(historyObj);
         }
-        return qaService.chatStream(query, historyJson);
+        Object modeObj = body.get("mode");
+        String mode = modeObj != null ? String.valueOf(modeObj) : null;
+        return qaService.chatStream(query, historyJson, mode);
     }
 }

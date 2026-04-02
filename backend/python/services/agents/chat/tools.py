@@ -9,8 +9,8 @@ from services.chroma_service import get_collection, get_embeddings
 logger = logging.getLogger(__name__)
 
 
-def retrieve_context(query: str, top_k: int = 5) -> list[dict]:
-    """从 ChromaDB 检索与问题相关的文档片段"""
+def retrieve_context(query: str, top_k: int = 5, max_distance: float = 1.2) -> list[dict]:
+    """从 ChromaDB 检索与问题相关的文档片段；距离超过阈值则视为不相关。"""
     try:
         collection = get_collection()
         query_embedding = get_embeddings([query])[0]
@@ -23,8 +23,10 @@ def retrieve_context(query: str, top_k: int = 5) -> list[dict]:
         contexts = []
         if results and results["documents"]:
             for i, doc in enumerate(results["documents"][0]):
-                meta = results["metadatas"][0][i] if results["metadatas"] else {}
                 distance = results["distances"][0][i] if results["distances"] else None
+                if distance is not None and distance > max_distance:
+                    continue
+                meta = results["metadatas"][0][i] if results["metadatas"] else {}
                 contexts.append({
                     "content": doc,
                     "title": meta.get("title", ""),

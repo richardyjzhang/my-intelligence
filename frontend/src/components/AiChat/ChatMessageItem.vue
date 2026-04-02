@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { NIcon, NSpin, NTag } from 'naive-ui'
-import { DocumentTextOutline, ReloadOutline } from '@vicons/ionicons5'
+import { DocumentTextOutline, FolderOpenOutline, ReloadOutline } from '@vicons/ionicons5'
+import type { ChatIntent } from '@/api/qa'
 import { renderMarkdown } from '@/utils/markdown'
 import * as echarts from 'echarts'
 
@@ -10,7 +11,8 @@ interface DisplayMessage {
   role: 'user' | 'assistant'
   content: string
   reasoning: string
-  sources?: { title: string; documentId: number }[]
+  intent?: ChatIntent
+  sources?: { title: string; documentId: number; fileName?: string }[]
   streaming?: boolean
   reasoningPanelOpen?: boolean
 }
@@ -140,8 +142,53 @@ function handleResize() {
         <span v-else-if="message.streaming" class="gchat-cursor" />
       </div>
 
-      <!-- 来源引用 -->
-      <div v-if="message.sources?.length" class="gchat-msg__sources">
+      <!-- 文档检索：卡片列表 -->
+      <div
+        v-if="message.intent === 'doc_search' && message.sources?.length"
+        class="gchat-msg__doc-cards"
+      >
+        <div
+          v-for="(src, i) in message.sources"
+          :key="i"
+          class="gchat-msg__doc-card"
+        >
+          <div class="gchat-msg__doc-card-icon">
+            <NIcon :component="FolderOpenOutline" :size="16" />
+          </div>
+          <div class="gchat-msg__doc-card-body">
+            <div class="gchat-msg__doc-card-title">
+              {{ src.title || `文档 #${src.documentId}` }}
+            </div>
+            <div v-if="src.fileName" class="gchat-msg__doc-card-file">
+              {{ src.fileName }}
+            </div>
+            <div class="gchat-msg__doc-card-id">ID: {{ src.documentId }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 知识问答：标签来源 -->
+      <div
+        v-else-if="message.intent === 'knowledge_qa' && message.sources?.length"
+        class="gchat-msg__sources"
+      >
+        <NTag
+          v-for="(src, i) in message.sources"
+          :key="i"
+          size="small"
+          round
+          :bordered="false"
+        >
+          <template #icon><NIcon :component="DocumentTextOutline" :size="12" /></template>
+          {{ src.title || `文档#${src.documentId}` }}
+        </NTag>
+      </div>
+
+      <!-- 未带 intent 的旧消息或未分类：有来源仍用标签 -->
+      <div
+        v-else-if="!message.intent && message.sources?.length"
+        class="gchat-msg__sources"
+      >
         <NTag
           v-for="(src, i) in message.sources"
           :key="i"
@@ -272,6 +319,56 @@ function handleResize() {
   flex-wrap: wrap;
   gap: 0.375rem;
   margin-top: 0.25rem;
+}
+
+/* ── 文档检索卡片 ── */
+.gchat-msg__doc-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+  max-width: 100%;
+}
+
+.gchat-msg__doc-card {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--n-border-color, #e5e6eb);
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 4%, var(--n-color, #fff));
+}
+
+.gchat-msg__doc-card-icon {
+  flex-shrink: 0;
+  color: var(--theme-primary, #0084ff);
+  padding-top: 0.125rem;
+}
+
+.gchat-msg__doc-card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.gchat-msg__doc-card-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--n-text-color, #1d2129);
+  line-height: 1.4;
+}
+
+.gchat-msg__doc-card-file {
+  font-size: 0.75rem;
+  color: var(--n-text-color-3, #86909c);
+  margin-top: 0.125rem;
+  word-break: break-all;
+}
+
+.gchat-msg__doc-card-id {
+  font-size: 0.6875rem;
+  color: var(--n-text-color-3, #86909c);
+  margin-top: 0.125rem;
+  font-family: ui-monospace, monospace;
 }
 
 /* ── Markdown 内容样式（gchat-md） ── */

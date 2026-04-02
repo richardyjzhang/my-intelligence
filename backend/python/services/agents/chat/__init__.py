@@ -1,1 +1,1 @@
-from . import agent  # noqa: F401 — 触发智能体注册
+from . import router  # noqa: F401, E402 — 触发各子智能体注册

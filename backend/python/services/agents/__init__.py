@@ -12,4 +12,4 @@ def sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-from . import chat  # noqa: F401, E402
+from . import chat  # noqa: F401, E402 — 加载 router 与各子智能体注册
