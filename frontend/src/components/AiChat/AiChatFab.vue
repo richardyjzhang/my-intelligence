@@ -3,9 +3,9 @@ import { ref, computed } from 'vue'
 import { NIcon, NButton } from 'naive-ui'
 import {
   ChatbubbleEllipsesOutline,
-  CloseOutline,
   ExpandOutline,
   ContractOutline,
+  RemoveOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import AiChatWindow from './AiChatWindow.vue'
@@ -47,10 +47,11 @@ function toggleExpand() {
 
     <Transition name="gchat-panel">
       <div
-        v-if="isOpen"
+        v-show="isOpen"
         class="gchat-panel"
         :class="{ 'gchat-panel--expanded': expanded }"
         :style="{ viewTransitionName: 'gchat-panel' }"
+        :aria-hidden="!isOpen"
       >
         <div class="gchat-header">
           <div class="gchat-header__left">
@@ -72,9 +73,15 @@ function toggleExpand() {
                 <NIcon :component="expanded ? ContractOutline : ExpandOutline" :size="16" />
               </template>
             </NButton>
-            <NButton quaternary size="tiny" @click="toggleOpen">
+            <NButton
+              quaternary
+              size="tiny"
+              title="收起面板，对话记录保留"
+              aria-label="收起 AI 助手"
+              @click="toggleOpen"
+            >
               <template #icon>
-                <NIcon :component="CloseOutline" :size="16" />
+                <NIcon :component="RemoveOutline" :size="16" />
               </template>
             </NButton>
           </div>

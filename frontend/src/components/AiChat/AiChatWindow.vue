@@ -21,6 +21,8 @@ export interface DisplayMessage {
   sources?: { title: string; documentId: number; fileName?: string }[]
   streaming?: boolean
   reasoningPanelOpen?: boolean
+  /** 后端提示（如已忽略历史、建议清空对话） */
+  hint?: string
 }
 
 const props = defineProps<{ visible: boolean; expanded: boolean }>()
@@ -164,6 +166,13 @@ function handleSend() {
       isStreaming.value = false
       abortController.value = null
       scrollToBottom()
+    },
+    onHint: (data) => {
+      const msg = messages.value[assistantIdx]
+      if (data?.message) {
+        msg.hint = data.message
+        scrollToBottom()
+      }
     },
     onError: (message) => {
       const msg = messages.value[assistantIdx]

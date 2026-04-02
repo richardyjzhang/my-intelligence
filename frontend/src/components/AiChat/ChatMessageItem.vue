@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { NAvatar, NIcon, NSpin, NTag } from 'naive-ui'
-import { DocumentTextOutline, FolderOpenOutline, ReloadOutline } from '@vicons/ionicons5'
+import { DocumentTextOutline, FolderOpenOutline, InformationCircleOutline, ReloadOutline } from '@vicons/ionicons5'
 import type { ChatIntent } from '@/api/qa'
 import { renderMarkdown } from '@/utils/markdown'
 import { useAuthStore } from '@/stores/auth'
@@ -25,6 +25,7 @@ interface DisplayMessage {
   sources?: { title: string; documentId: number; fileName?: string }[]
   streaming?: boolean
   reasoningPanelOpen?: boolean
+  hint?: string
 }
 
 const props = defineProps<{ message: DisplayMessage; expanded: boolean }>()
@@ -227,6 +228,16 @@ function handleResize() {
           {{ src.title || `文档#${src.documentId}` }}
         </NTag>
       </div>
+
+      <!-- 系统提示（如已忽略历史、建议清空） -->
+      <div
+        v-if="message.role === 'assistant' && message.hint"
+        class="gchat-msg__hint"
+        role="status"
+      >
+        <NIcon :component="InformationCircleOutline" :size="14" class="gchat-msg__hint-icon" />
+        <span class="gchat-msg__hint-text">{{ message.hint }}</span>
+      </div>
     </div>
 
     <div v-if="expanded && message.role === 'user'" class="gchat-msg__avatar gchat-msg__avatar--user">
@@ -394,6 +405,34 @@ function handleResize() {
   flex-wrap: wrap;
   gap: 0.375rem;
   margin-top: 0.25rem;
+}
+
+/* ── 历史忽略提示（橙色 warning，便于一眼看到） ── */
+.gchat-msg__hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #9a3412;
+  background: color-mix(in srgb, #f97316 16%, var(--n-color, #fff));
+  border: 1px solid color-mix(in srgb, #ea580c 42%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #fb923c 25%, transparent);
+}
+
+.gchat-msg__hint-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #ea580c;
+}
+
+.gchat-msg__hint-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── 文档检索卡片 ── */

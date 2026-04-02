@@ -14,6 +14,7 @@ from .classifier import classify_intent
 from .casual_agent import casual_stream
 from .doc_search_agent import doc_search_stream
 from .knowledge_agent import knowledge_stream
+from .relevance_checker import check_relevance, HISTORY_HINT_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,36 @@ def chat_stream(
     history = history or []
     model = model or getattr(config, "CHAT_MODEL", "qwen3:8b")
 
+    history_dropped = False
+    if check_relevance(query, history, model=model):
+        pass  # 保留 history
+    else:
+        history = []
+        history_dropped = True
+        logger.info("[%s] 已丢弃无关历史对话，仅使用当前问题", request_id)
+
     intent = resolve_intent(mode, query, model)
     logger.info("[%s] 路由 intent=%s, mode=%s", request_id, intent, mode)
 
-    yield sse_event("meta", {"requestId": request_id, "model": model, "intent": intent})
+    meta_payload: dict = {
+        "requestId": request_id,
+        "model": model,
+        "intent": intent,
+    }
+    if history_dropped:
+        meta_payload["historyDropped"] = True
+
+    yield sse_event("meta", meta_payload)
 
     if intent == "casual":
-        yield from casual_stream(query, history, model)
+        for ev in casual_stream(query, history, model):
+            yield ev
     elif intent == "doc_search":
-        yield from doc_search_stream(query, history, model)
+        for ev in doc_search_stream(query, history, model):
+            yield ev
     else:
-        yield from knowledge_stream(query, history, model)
+        for ev in knowledge_stream(query, history, model):
+            yield ev
+
+    if history_dropped:
+        yield sse_event("hint", {"message": HISTORY_HINT_MESSAGE})

@@ -10,12 +10,18 @@ export interface ChatMessage {
 }
 
 export interface ChatStreamCallbacks {
-  onMeta?: (data: { requestId: string; model: string; intent?: ChatIntent }) => void
+  onMeta?: (data: {
+    requestId: string
+    model: string
+    intent?: ChatIntent
+    historyDropped?: boolean
+  }) => void
   onReasoningDelta?: (content: string) => void
   onAnswerDelta?: (content: string) => void
   onDone?: (data: {
     sources?: { title: string; documentId: number; fileName?: string }[]
   }) => void
+  onHint?: (data: { message: string }) => void
   onError?: (message: string) => void
 }
 
@@ -91,6 +97,9 @@ export function chatStream(
                 break
               case 'done':
                 callbacks.onDone?.(parsed)
+                break
+              case 'hint':
+                callbacks.onHint?.(parsed)
                 break
               case 'error':
                 callbacks.onError?.(parsed.message)
