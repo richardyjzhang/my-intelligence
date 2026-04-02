@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import threading
 import time
@@ -184,6 +185,16 @@ def phase3_consume_index_queue():
     file_name = item.get("fileName", "")
 
     logger.info("阶段3: 索引文档 documentId=%s, title=%s", document_id, title)
+
+    try:
+        text_dir = os.path.join(config.FILE_ROOT_PATH, "documents", "texts")
+        os.makedirs(text_dir, exist_ok=True)
+        text_path = os.path.join(text_dir, f"{document_id}.md")
+        with open(text_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        logger.info("纯文本已保存: %s", text_path)
+    except Exception as e:
+        logger.warning("保存纯文本失败(不影响索引): documentId=%s, error=%s", document_id, e)
 
     try:
         es_service.index_document(document_id, title, content, tags, file_name)
