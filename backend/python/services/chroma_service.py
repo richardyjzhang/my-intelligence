@@ -27,7 +27,7 @@ def get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
         _openai_client = OpenAI(
-            base_url=config.OLLAMA_BASE_URL,
+            base_url=config.EMBEDDING_BASE_URL,
             api_key="ollama",
         )
     return _openai_client

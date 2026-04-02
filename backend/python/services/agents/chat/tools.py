@@ -54,7 +54,7 @@ def build_user_content(query: str, contexts: list[dict]) -> str:
 
 
 def build_messages(query: str, contexts: list[dict], history: list[dict]) -> list[dict]:
-    """构建 Anthropic Messages API 格式的消息列表（不含 system）"""
+    """构建 OpenAI Chat API 格式的消息列表（不含 system）"""
     messages = []
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})

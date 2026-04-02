@@ -1,7 +1,7 @@
 """
-统一的 AI 客户端 —— 封装 Anthropic 风格 API 调用。
+统一的 AI 客户端 —— 封装 OpenAI 兼容协议 API 调用。
 
-所有与大模型交互的代码都应通过此模块进行，不应直接使用 anthropic SDK。
+所有与大模型交互的代码都应通过此模块进行，不应直接使用 openai SDK。
 支持多智能体切换：根据 agent_id 自动加载对应的系统提示词和参数。
 
 使用方式:
@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-import anthropic
+from openai import OpenAI
 
 import config
 from .registry import AgentProfile, get_agent
@@ -49,31 +49,54 @@ class EmptyToolInputError(RuntimeError):
         )
 
 
+def _convert_tools_anthropic_to_openai(tools: list[dict]) -> list[dict]:
+    """将 Anthropic 格式的工具定义转换为 OpenAI 格式。"""
+    result = []
+    for tool in tools:
+        openai_tool = {
+            "type": "function",
+            "function": {
+                "name": tool.get("name", ""),
+                "description": tool.get("description", ""),
+            },
+        }
+        if "input_schema" in tool:
+            openai_tool["function"]["parameters"] = tool["input_schema"]
+        elif "parameters" in tool:
+            openai_tool["function"]["parameters"] = tool["parameters"]
+        result.append(openai_tool)
+    return result
+
+
+def _is_openai_tool_format(tools: list[dict]) -> bool:
+    """检测工具定义是否已经是 OpenAI 格式。"""
+    return bool(tools and tools[0].get("type") == "function")
+
+
 class AIClient:
     """
-    Anthropic 风格 API 的统一客户端。
+    OpenAI 兼容协议的统一客户端。
 
     从 config 模块读取配置，模块加载时自动初始化。
     """
 
     def __init__(self):
-        self._client: Optional[anthropic.Anthropic] = None
+        self._client: Optional[OpenAI] = None
         self._default_model: str = getattr(config, "AI_MODEL", "") or getattr(config, "CHAT_MODEL", "")
         self._default_max_tokens: int = int(getattr(config, "AI_MAX_TOKENS", 4096))
         self._default_temperature: float = float(getattr(config, "AI_TEMPERATURE", 0.3))
         self._initialized: bool = False
 
         api_key = getattr(config, "AI_API_KEY", "ollama")
-        base_url = getattr(config, "AI_API_BASE_URL", "") or getattr(config, "OLLAMA_BASE_URL", "http://localhost:11434")
-        # Anthropic SDK 需要不带 /v1 后缀的 base_url
-        if base_url.endswith("/v1"):
-            base_url = base_url[:-3]
+        base_url = getattr(config, "AI_API_BASE_URL", "") or "http://localhost:11434"
+        if not base_url.endswith("/v1"):
+            base_url = base_url.rstrip("/") + "/v1"
 
         if not api_key:
             logger.warning("AI_API_KEY 未配置，AI 功能将不可用。")
             return
 
-        self._client = anthropic.Anthropic(
+        self._client = OpenAI(
             api_key=api_key,
             base_url=base_url,
         )
@@ -102,263 +125,17 @@ class AIClient:
         )
         return resolved_model, resolved_max_tokens, resolved_temp
 
-    def _adjust_max_tokens_for_thinking(
-        self, agent: AgentProfile, max_tokens: int
-    ) -> int:
-        """extended thinking 时 budget_tokens 必须小于 max_tokens；不足则自动抬高。"""
-        if (
-            agent.thinking_budget
-            and not agent.thinking_disabled
-            and max_tokens <= agent.thinking_budget
-        ):
-            adjusted = agent.thinking_budget + 4096
-            logger.warning(
-                "max_tokens %s <= thinking_budget %s，已自动调整为 %s",
-                max_tokens,
-                agent.thinking_budget,
-                adjusted,
-            )
-            return adjusted
-        return max_tokens
+    def _build_messages_with_system(
+        self, system: str, messages: list[dict]
+    ) -> list[dict]:
+        """将系统提示词插入消息列表头部。"""
+        result = []
+        if system:
+            result.append({"role": "system", "content": system})
+        result.extend(messages)
+        return result
 
-    # ── 核心调用 ──
-
-    def chat(
-        self,
-        agent_id: str,
-        messages: list[dict],
-        *,
-        model: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        system_prompt_override: Optional[str] = None,
-        tools: Optional[list[dict]] = None,
-        on_thinking_delta: Optional[Callable[[str], None]] = None,
-    ) -> AIResponse:
-        if not self.is_available:
-            raise RuntimeError("AI 客户端未初始化，请检查配置")
-
-        agent = get_agent(agent_id)
-        r_model, r_max_tokens, r_temp = self._resolve_params(
-            agent, model, max_tokens, temperature
-        )
-        r_max_tokens = self._adjust_max_tokens_for_thinking(agent, r_max_tokens)
-        system = system_prompt_override or agent.system_prompt
-
-        create_kw: dict = {
-            "model": r_model,
-            "max_tokens": r_max_tokens,
-            "temperature": r_temp,
-            "system": system,
-            "messages": messages,
-        }
-        if tools:
-            create_kw["tools"] = tools
-        if agent.thinking_disabled:
-            create_kw["thinking"] = {"type": "disabled"}
-        elif agent.thinking_budget:
-            create_kw["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": agent.thinking_budget,
-            }
-
-        use_thinking_stream = bool(agent.thinking_budget and not agent.thinking_disabled)
-
-        if use_thinking_stream:
-            try:
-                stream_ctx = self._client.messages.stream(**create_kw)
-            except TypeError:
-                create_kw.pop("thinking", None)
-                stream_ctx = self._client.messages.stream(**create_kw)
-            with stream_ctx as stream:
-                for event in stream:
-                    if getattr(event, "type", None) == "thinking" and on_thinking_delta:
-                        piece = getattr(event, "thinking", "") or ""
-                        if piece:
-                            on_thinking_delta(piece)
-                final = stream.get_final_message()
-            content = ""
-            thinking = ""
-            for block in final.content:
-                block_type = getattr(block, "type", "")
-                if block_type == "text":
-                    content += getattr(block, "text", "") or ""
-                elif block_type == "thinking":
-                    thinking += getattr(block, "thinking", "") or ""
-            return AIResponse(
-                content=content,
-                model=final.model,
-                usage={
-                    "input_tokens": final.usage.input_tokens,
-                    "output_tokens": final.usage.output_tokens,
-                },
-                stop_reason=final.stop_reason,
-                thinking=thinking or None,
-                raw=final,
-            )
-
-        try:
-            response = self._client.messages.create(**create_kw)
-        except TypeError:
-            create_kw.pop("thinking", None)
-            response = self._client.messages.create(**create_kw)
-
-        content = ""
-        thinking = ""
-        for block in response.content:
-            block_type = getattr(block, "type", "")
-            if block_type == "text":
-                content += block.text or ""
-            elif block_type == "thinking":
-                thinking += getattr(block, "thinking", "") or ""
-
-        return AIResponse(
-            content=content,
-            model=response.model,
-            usage={
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            },
-            stop_reason=response.stop_reason,
-            thinking=thinking or None,
-            raw=response,
-        )
-
-    def chat_with_tools(
-        self,
-        agent_id: str,
-        messages: list[dict],
-        tools: list[dict],
-        tool_executor: Callable[[str, dict], Any],
-        *,
-        model: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        system_prompt_override: Optional[str] = None,
-        max_rounds: int = 10,
-        on_tool_call: Optional[Callable[[str, dict, Any], None]] = None,
-        on_thinking: Optional[Callable[[str], None]] = None,
-    ) -> AIResponse:
-        """带工具调用的多轮对话：自动循环处理 tool_use 直到 AI 给出最终回答。"""
-        if not self.is_available:
-            raise RuntimeError("AI 客户端未初始化，请检查配置")
-
-        agent = get_agent(agent_id)
-        r_model, r_max_tokens, r_temp = self._resolve_params(
-            agent, model, max_tokens, temperature
-        )
-        r_max_tokens = self._adjust_max_tokens_for_thinking(agent, r_max_tokens)
-        system = system_prompt_override or agent.system_prompt
-        msgs = list(messages)
-        tool_required_fields = {
-            tool.get("name"): list(
-                ((tool.get("input_schema") or {}).get("required") or [])
-            )
-            for tool in tools
-        }
-
-        total_usage = {"input_tokens": 0, "output_tokens": 0}
-        final_model = ""
-        all_thinking = ""
-
-        use_thinking_stream = bool(agent.thinking_budget and not agent.thinking_disabled)
-
-        for _ in range(max_rounds):
-            create_kw: dict = {
-                "model": r_model,
-                "max_tokens": r_max_tokens,
-                "temperature": r_temp,
-                "system": system,
-                "messages": msgs,
-                "tools": tools,
-            }
-            if agent.thinking_disabled:
-                create_kw["thinking"] = {"type": "disabled"}
-            elif agent.thinking_budget:
-                create_kw["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": agent.thinking_budget,
-                }
-
-            if use_thinking_stream:
-                try:
-                    stream_ctx = self._client.messages.stream(**create_kw)
-                except TypeError:
-                    create_kw.pop("thinking", None)
-                    stream_ctx = self._client.messages.stream(**create_kw)
-                with stream_ctx as stream:
-                    for event in stream:
-                        if getattr(event, "type", None) == "thinking" and on_thinking:
-                            piece = getattr(event, "thinking", "") or ""
-                            if piece:
-                                all_thinking += piece
-                                on_thinking(piece)
-                    response = stream.get_final_message()
-            else:
-                try:
-                    response = self._client.messages.create(**create_kw)
-                except TypeError:
-                    create_kw.pop("thinking", None)
-                    response = self._client.messages.create(**create_kw)
-
-                for block in response.content:
-                    if getattr(block, "type", "") == "thinking":
-                        text = getattr(block, "thinking", "") or ""
-                        if text:
-                            all_thinking += text + "\n"
-                            if on_thinking:
-                                on_thinking(text)
-
-            final_model = response.model
-            total_usage["input_tokens"] += response.usage.input_tokens
-            total_usage["output_tokens"] += response.usage.output_tokens
-
-            if response.stop_reason != "tool_use":
-                content = ""
-                for block in response.content:
-                    if getattr(block, "type", "") == "text":
-                        content += block.text or ""
-                return AIResponse(
-                    content=content,
-                    model=final_model,
-                    usage=total_usage,
-                    stop_reason=response.stop_reason,
-                    thinking=all_thinking or None,
-                    raw=response,
-                )
-
-            msgs.append({"role": "assistant", "content": response.content})
-
-            tool_results = []
-            for block in response.content:
-                if getattr(block, "type", "") != "tool_use":
-                    continue
-                tool_name = block.name
-                tool_input = block.input
-                required_fields = tool_required_fields.get(tool_name) or []
-
-                if (not tool_input) and required_fields:
-                    raise EmptyToolInputError(tool_name, required_fields)
-
-                try:
-                    result = tool_executor(tool_name, tool_input)
-                    result_str = json.dumps(result, ensure_ascii=False) if not isinstance(result, str) else result
-                except Exception as e:
-                    result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
-                    result = {"error": str(e)}
-
-                if on_tool_call:
-                    on_tool_call(tool_name, tool_input, result)
-
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result_str,
-                })
-
-            msgs.append({"role": "user", "content": tool_results})
-
-        raise RuntimeError(f"工具调用超过 {max_rounds} 轮仍未结束")
+    # ── <think> 标签解析 ──
 
     @staticmethod
     def _parse_think_tags(
@@ -421,6 +198,196 @@ class AIClient:
             return "thinking", ""
         return "text", ""
 
+    @staticmethod
+    def _strip_think_tags(text: str) -> tuple[str, str]:
+        """从完整文本中分离 <think>...</think> 标签内容。返回 (content, thinking)。"""
+        import re
+        thinking_parts = []
+        content = text
+
+        for m in re.finditer(r"<think>(.*?)</think>", text, re.DOTALL):
+            thinking_parts.append(m.group(1))
+        content = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+        return content, "\n".join(thinking_parts) if thinking_parts else ""
+
+    # ── 核心调用 ──
+
+    def chat(
+        self,
+        agent_id: str,
+        messages: list[dict],
+        *,
+        model: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        system_prompt_override: Optional[str] = None,
+        tools: Optional[list[dict]] = None,
+        on_thinking_delta: Optional[Callable[[str], None]] = None,
+    ) -> AIResponse:
+        if not self.is_available:
+            raise RuntimeError("AI 客户端未初始化，请检查配置")
+
+        agent = get_agent(agent_id)
+        r_model, r_max_tokens, r_temp = self._resolve_params(
+            agent, model, max_tokens, temperature
+        )
+        system = system_prompt_override or agent.system_prompt
+        full_messages = self._build_messages_with_system(system, messages)
+
+        create_kw: dict = {
+            "model": r_model,
+            "max_tokens": r_max_tokens,
+            "temperature": r_temp,
+            "messages": full_messages,
+        }
+        if tools:
+            openai_tools = tools if _is_openai_tool_format(tools) else _convert_tools_anthropic_to_openai(tools)
+            create_kw["tools"] = openai_tools
+
+        response = self._client.chat.completions.create(**create_kw)
+
+        choice = response.choices[0]
+        raw_content = choice.message.content or ""
+
+        content, thinking = self._strip_think_tags(raw_content)
+        if thinking and on_thinking_delta:
+            on_thinking_delta(thinking)
+
+        usage_dict = {}
+        if response.usage:
+            usage_dict = {
+                "input_tokens": response.usage.prompt_tokens,
+                "output_tokens": response.usage.completion_tokens,
+            }
+
+        return AIResponse(
+            content=content,
+            model=response.model,
+            usage=usage_dict,
+            stop_reason=choice.finish_reason,
+            thinking=thinking or None,
+            raw=response,
+        )
+
+    def chat_with_tools(
+        self,
+        agent_id: str,
+        messages: list[dict],
+        tools: list[dict],
+        tool_executor: Callable[[str, dict], Any],
+        *,
+        model: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        system_prompt_override: Optional[str] = None,
+        max_rounds: int = 10,
+        on_tool_call: Optional[Callable[[str, dict, Any], None]] = None,
+        on_thinking: Optional[Callable[[str], None]] = None,
+    ) -> AIResponse:
+        """带工具调用的多轮对话：自动循环处理 tool_calls 直到 AI 给出最终回答。"""
+        if not self.is_available:
+            raise RuntimeError("AI 客户端未初始化，请检查配置")
+
+        agent = get_agent(agent_id)
+        r_model, r_max_tokens, r_temp = self._resolve_params(
+            agent, model, max_tokens, temperature
+        )
+        system = system_prompt_override or agent.system_prompt
+
+        openai_tools = tools if _is_openai_tool_format(tools) else _convert_tools_anthropic_to_openai(tools)
+        tool_required_fields: dict[str, list[str]] = {}
+        for tool in tools:
+            name = tool.get("name") or tool.get("function", {}).get("name", "")
+            schema = tool.get("input_schema") or tool.get("function", {}).get("parameters", {})
+            tool_required_fields[name] = list(schema.get("required", []))
+
+        msgs = self._build_messages_with_system(system, messages)
+        total_usage = {"input_tokens": 0, "output_tokens": 0}
+        final_model = ""
+        all_thinking = ""
+
+        for _ in range(max_rounds):
+            create_kw: dict = {
+                "model": r_model,
+                "max_tokens": r_max_tokens,
+                "temperature": r_temp,
+                "messages": msgs,
+                "tools": openai_tools,
+            }
+
+            response = self._client.chat.completions.create(**create_kw)
+
+            choice = response.choices[0]
+            final_model = response.model
+            if response.usage:
+                total_usage["input_tokens"] += response.usage.prompt_tokens
+                total_usage["output_tokens"] += response.usage.completion_tokens
+
+            raw_content = choice.message.content or ""
+            if raw_content:
+                content_text, thinking_text = self._strip_think_tags(raw_content)
+                if thinking_text:
+                    all_thinking += thinking_text + "\n"
+                    if on_thinking:
+                        on_thinking(thinking_text)
+            else:
+                content_text = ""
+
+            if choice.finish_reason != "tool_calls":
+                return AIResponse(
+                    content=content_text,
+                    model=final_model,
+                    usage=total_usage,
+                    stop_reason=choice.finish_reason,
+                    thinking=all_thinking or None,
+                    raw=response,
+                )
+
+            assistant_msg: dict = {"role": "assistant", "content": raw_content or None}
+            if choice.message.tool_calls:
+                assistant_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in choice.message.tool_calls
+                ]
+            msgs.append(assistant_msg)
+
+            for tc in (choice.message.tool_calls or []):
+                tool_name = tc.function.name
+                try:
+                    tool_input = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                except json.JSONDecodeError:
+                    tool_input = {}
+
+                required_fields = tool_required_fields.get(tool_name, [])
+                if (not tool_input) and required_fields:
+                    raise EmptyToolInputError(tool_name, required_fields)
+
+                try:
+                    result = tool_executor(tool_name, tool_input)
+                    result_str = json.dumps(result, ensure_ascii=False) if not isinstance(result, str) else result
+                except Exception as e:
+                    result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
+                    result = {"error": str(e)}
+
+                if on_tool_call:
+                    on_tool_call(tool_name, tool_input, result)
+
+                msgs.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result_str,
+                })
+
+        raise RuntimeError(f"工具调用超过 {max_rounds} 轮仍未结束")
+
     def chat_stream(
         self,
         agent_id: str,
@@ -443,68 +410,35 @@ class AIClient:
         r_model, r_max_tokens, r_temp = self._resolve_params(
             agent, model, max_tokens, temperature
         )
-        r_max_tokens = self._adjust_max_tokens_for_thinking(agent, r_max_tokens)
         system = system_prompt_override or agent.system_prompt
+        full_messages = self._build_messages_with_system(system, messages)
 
-        stream_kw: dict = {
-            "model": r_model,
-            "max_tokens": r_max_tokens,
-            "temperature": r_temp,
-            "system": system,
-            "messages": messages,
-        }
-        if agent.thinking_disabled:
-            stream_kw["thinking"] = {"type": "disabled"}
-        elif agent.thinking_budget:
-            stream_kw["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": agent.thinking_budget,
-            }
-        try:
-            stream_ctx = self._client.messages.stream(**stream_kw)
-        except TypeError:
-            stream_kw.pop("thinking", None)
-            stream_ctx = self._client.messages.stream(**stream_kw)
+        stream = self._client.chat.completions.create(
+            model=r_model,
+            max_tokens=r_max_tokens,
+            temperature=r_temp,
+            messages=full_messages,
+            stream=True,
+        )
 
-        with stream_ctx as stream:
-            had_native_thinking = False
-            # <think> 标签解析状态：detect → thinking → text
-            tag_state = "detect"
-            detect_buf = ""
+        tag_state = "detect"
+        detect_buf = ""
 
-            for event in stream:
-                event_type = getattr(event, "type", "")
-                if event_type != "content_block_delta":
-                    continue
-                delta = getattr(event, "delta", None)
-                if delta is None:
-                    continue
-                delta_type = getattr(delta, "type", "")
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            text = delta.content or ""
+            if not text:
+                continue
 
-                if delta_type == "thinking_delta":
-                    had_native_thinking = True
-                    thinking = getattr(delta, "thinking", "")
-                    if thinking:
-                        yield ("thinking", thinking)
-                    continue
+            yield from self._parse_think_tags(tag_state, detect_buf, text)
+            tag_state, detect_buf = self._advance_think_state(
+                tag_state, detect_buf, text
+            )
 
-                if delta_type != "text_delta":
-                    continue
-                text = getattr(delta, "text", "")
-                if not text:
-                    continue
-
-                if had_native_thinking:
-                    yield ("text", text)
-                    continue
-
-                yield from self._parse_think_tags(tag_state, detect_buf, text)
-                tag_state, detect_buf = self._advance_think_state(
-                    tag_state, detect_buf, text
-                )
-
-            if tag_state == "detect" and detect_buf:
-                yield ("text", detect_buf)
+        if tag_state == "detect" and detect_buf:
+            yield ("text", detect_buf)
 
 
 ai_client = AIClient()
