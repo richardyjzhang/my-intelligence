@@ -67,10 +67,6 @@ function buildMenuOptions(items: MenuItemConfig[]): MenuOption[] {
 
 const menuOptions = computed<MenuOption[]>(() => buildMenuOptions(filterMenuItems(menuConfig)))
 
-const menuGroupKeys = menuConfig
-  .filter((item) => item.children)
-  .map((item) => item.key)
-
 const activeMenuKey = computed(() => {
   const meta = route.meta
   return typeof meta.activeMenu === 'string' ? meta.activeMenu : route.path
@@ -223,8 +219,7 @@ async function handleChangePassword() {
           :value="activeMenuKey"
           :options="menuOptions"
           :indent="24"
-          accordion
-          :default-expanded-keys="menuGroupKeys"
+          default-expand-all
           @update:value="handleMenuUpdate"
         />
       </NLayoutSider>
