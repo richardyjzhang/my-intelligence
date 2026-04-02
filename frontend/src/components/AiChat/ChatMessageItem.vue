@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { NAvatar, NIcon, NSpin, NTag } from 'naive-ui'
-import { DocumentTextOutline, FolderOpenOutline, InformationCircleOutline, ReloadOutline } from '@vicons/ionicons5'
-import type { ChatIntent } from '@/api/qa'
+import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { NAvatar, NButton, NIcon, NSpin } from 'naive-ui'
+import {
+  DocumentTextOutline,
+  DownloadOutline,
+  EyeOutline,
+  FolderOpenOutline,
+  InformationCircleOutline,
+  ReloadOutline,
+} from '@vicons/ionicons5'
+import type { ChatIntent, ChatSourceItem } from '@/api/qa'
+import { getDownloadUrl, getPreviewUrl } from '@/api/document'
+import DocumentPreviewModal from '@/views/components/DocumentPreviewModal.vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useAuthStore } from '@/stores/auth'
 import * as echarts from 'echarts'
@@ -22,13 +31,24 @@ interface DisplayMessage {
   content: string
   reasoning: string
   intent?: ChatIntent
-  sources?: { title: string; documentId: number; fileName?: string }[]
+  sources?: ChatSourceItem[]
+  citedSources?: ChatSourceItem[]
+  relatedSources?: ChatSourceItem[]
   streaming?: boolean
   reasoningPanelOpen?: boolean
   hint?: string
 }
 
 const props = defineProps<{ message: DisplayMessage; expanded: boolean }>()
+
+/** 知识问答新版：后端下发 citedSources / relatedSources */
+const knowledgeUsesSplitSources = computed(() => {
+  const m = props.message
+  return (
+    m.intent === 'knowledge_qa' &&
+    (m.citedSources !== undefined || m.relatedSources !== undefined)
+  )
+})
 
 const ECHARTS_REGEX = /```echarts\s*\n([\s\S]*?)```/g
 const chartInstanceMap = new Map<HTMLElement, echarts.ECharts>()
@@ -108,6 +128,16 @@ onBeforeUnmount(() => {
 
 function handleResize() {
   chartInstanceMap.forEach((instance) => instance.resize())
+}
+
+const previewShow = ref(false)
+const previewTitle = ref('')
+const previewUrl = ref('')
+
+function openSourcePreview(src: ChatSourceItem) {
+  previewTitle.value = (src.title && src.title.trim()) || `文档 #${src.documentId}`
+  previewUrl.value = getPreviewUrl(src.documentId)
+  previewShow.value = true
 }
 </script>
 
@@ -191,42 +221,193 @@ function handleResize() {
               {{ src.fileName }}
             </div>
             <div class="gchat-msg__doc-card-id">ID: {{ src.documentId }}</div>
+            <div class="gchat-msg__doc-card-actions">
+              <NButton
+                text
+                type="primary"
+                size="small"
+                @click="openSourcePreview(src)"
+              >
+                <template #icon>
+                  <NIcon :component="EyeOutline" />
+                </template>
+                预览
+              </NButton>
+              <NButton
+                text
+                tag="a"
+                size="small"
+                :href="getDownloadUrl(src.documentId)"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <template #icon>
+                  <NIcon :component="DownloadOutline" />
+                </template>
+                下载
+              </NButton>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 知识问答：标签来源 -->
+      <!-- 知识问答：参考来源 + 其他可能的参考 -->
+      <div
+        v-else-if="knowledgeUsesSplitSources && (message.citedSources?.length || message.relatedSources?.length)"
+        class="gchat-msg__source-groups"
+      >
+        <div v-if="message.citedSources?.length" class="gchat-msg__source-block">
+          <div class="gchat-msg__sources-caption">参考来源</div>
+          <div class="gchat-msg__source-list">
+            <div
+              v-for="(src, i) in message.citedSources"
+              :key="'c' + i"
+              class="gchat-msg__source-row"
+            >
+              <div class="gchat-msg__source-row-main">
+                <NIcon :component="DocumentTextOutline" :size="14" class="gchat-msg__source-row-icon" />
+                <span class="gchat-msg__source-row-title">{{ src.title || `文档#${src.documentId}` }}</span>
+              </div>
+              <div class="gchat-msg__source-row-actions">
+                <NButton text type="primary" size="tiny" @click="openSourcePreview(src)">
+                  <template #icon>
+                    <NIcon :component="EyeOutline" :size="14" />
+                  </template>
+                  预览
+                </NButton>
+                <NButton
+                  text
+                  tag="a"
+                  size="tiny"
+                  :href="getDownloadUrl(src.documentId)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <template #icon>
+                    <NIcon :component="DownloadOutline" :size="14" />
+                  </template>
+                  下载
+                </NButton>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="message.relatedSources?.length"
+          class="gchat-msg__source-block gchat-msg__source-block--related"
+        >
+          <div class="gchat-msg__sources-caption gchat-msg__sources-caption--muted">其他可能的参考</div>
+          <div class="gchat-msg__source-list">
+            <div
+              v-for="(src, i) in message.relatedSources"
+              :key="'r' + i"
+              class="gchat-msg__source-row gchat-msg__source-row--related"
+            >
+              <div class="gchat-msg__source-row-main">
+                <NIcon :component="DocumentTextOutline" :size="14" class="gchat-msg__source-row-icon" />
+                <span class="gchat-msg__source-row-title">{{ src.title || `文档#${src.documentId}` }}</span>
+              </div>
+              <div class="gchat-msg__source-row-actions">
+                <NButton text type="primary" size="tiny" @click="openSourcePreview(src)">
+                  <template #icon>
+                    <NIcon :component="EyeOutline" :size="14" />
+                  </template>
+                  预览
+                </NButton>
+                <NButton
+                  text
+                  tag="a"
+                  size="tiny"
+                  :href="getDownloadUrl(src.documentId)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <template #icon>
+                    <NIcon :component="DownloadOutline" :size="14" />
+                  </template>
+                  下载
+                </NButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 知识问答（旧）：标签来源 -->
       <div
         v-else-if="message.intent === 'knowledge_qa' && message.sources?.length"
-        class="gchat-msg__sources"
+        class="gchat-msg__source-groups"
       >
-        <NTag
-          v-for="(src, i) in message.sources"
-          :key="i"
-          size="small"
-          round
-          :bordered="false"
-        >
-          <template #icon><NIcon :component="DocumentTextOutline" :size="12" /></template>
-          {{ src.title || `文档#${src.documentId}` }}
-        </NTag>
+        <div class="gchat-msg__source-list">
+          <div
+            v-for="(src, i) in message.sources"
+            :key="i"
+            class="gchat-msg__source-row"
+          >
+            <div class="gchat-msg__source-row-main">
+              <NIcon :component="DocumentTextOutline" :size="14" class="gchat-msg__source-row-icon" />
+              <span class="gchat-msg__source-row-title">{{ src.title || `文档#${src.documentId}` }}</span>
+            </div>
+            <div class="gchat-msg__source-row-actions">
+              <NButton text type="primary" size="tiny" @click="openSourcePreview(src)">
+                <template #icon>
+                  <NIcon :component="EyeOutline" :size="14" />
+                </template>
+                预览
+              </NButton>
+              <NButton
+                text
+                tag="a"
+                size="tiny"
+                :href="getDownloadUrl(src.documentId)"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <template #icon>
+                  <NIcon :component="DownloadOutline" :size="14" />
+                </template>
+                下载
+              </NButton>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 未带 intent 的旧消息或未分类：有来源仍用标签 -->
-      <div
-        v-else-if="!message.intent && message.sources?.length"
-        class="gchat-msg__sources"
-      >
-        <NTag
-          v-for="(src, i) in message.sources"
-          :key="i"
-          size="small"
-          round
-          :bordered="false"
-        >
-          <template #icon><NIcon :component="DocumentTextOutline" :size="12" /></template>
-          {{ src.title || `文档#${src.documentId}` }}
-        </NTag>
+      <div v-else-if="!message.intent && message.sources?.length" class="gchat-msg__source-groups">
+        <div class="gchat-msg__source-list">
+          <div
+            v-for="(src, i) in message.sources"
+            :key="i"
+            class="gchat-msg__source-row"
+          >
+            <div class="gchat-msg__source-row-main">
+              <NIcon :component="DocumentTextOutline" :size="14" class="gchat-msg__source-row-icon" />
+              <span class="gchat-msg__source-row-title">{{ src.title || `文档#${src.documentId}` }}</span>
+            </div>
+            <div class="gchat-msg__source-row-actions">
+              <NButton text type="primary" size="tiny" @click="openSourcePreview(src)">
+                <template #icon>
+                  <NIcon :component="EyeOutline" :size="14" />
+                </template>
+                预览
+              </NButton>
+              <NButton
+                text
+                tag="a"
+                size="tiny"
+                :href="getDownloadUrl(src.documentId)"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <template #icon>
+                  <NIcon :component="DownloadOutline" :size="14" />
+                </template>
+                下载
+              </NButton>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 系统提示（如已忽略历史、建议清空） -->
@@ -254,6 +435,8 @@ function handleResize() {
         {{ userAvatarInitial }}
       </NAvatar>
     </div>
+
+    <DocumentPreviewModal v-model:show="previewShow" :title="previewTitle" :url="previewUrl" />
   </div>
 </template>
 
@@ -400,11 +583,91 @@ function handleResize() {
 }
 
 /* ── 来源 ── */
-.gchat-msg__sources {
+.gchat-msg__source-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+
+.gchat-msg__source-block--related {
+  opacity: 0.92;
+}
+
+.gchat-msg__sources-caption {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--n-text-color-2, #4e5969);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.02em;
+}
+
+.gchat-msg__sources-caption--muted {
+  font-weight: 500;
+  color: var(--n-text-color-3, #86909c);
+}
+
+.gchat-msg__source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.gchat-msg__source-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
-  margin-top: 0.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #0084ff) 22%, var(--n-border-color, #e5e6eb));
+  background: color-mix(in srgb, var(--theme-primary, #0084ff) 5%, var(--n-color, #fff));
+}
+
+.gchat-msg__source-row--related {
+  border-style: dashed;
+  border-color: var(--n-border-color, #e5e6eb);
+  background: color-mix(in srgb, var(--n-border-color, #e5e6eb) 28%, var(--n-color, #fff));
+}
+
+.gchat-msg__source-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.gchat-msg__source-row-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--theme-primary, #0084ff);
+}
+
+.gchat-msg__source-row--related .gchat-msg__source-row-icon {
+  color: var(--n-text-color-3, #86909c);
+}
+
+.gchat-msg__source-row-title {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--n-text-color, #1d2129);
+  word-break: break-word;
+}
+
+.gchat-msg__source-row-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.gchat-msg__source-row-actions :deep(.n-button) {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 /* ── 历史忽略提示（橙色 warning，便于一眼看到） ── */
@@ -483,6 +746,20 @@ function handleResize() {
   color: var(--n-text-color-3, #86909c);
   margin-top: 0.125rem;
   font-family: ui-monospace, monospace;
+}
+
+.gchat-msg__doc-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--n-border-color, #e5e6eb) 70%, transparent);
+}
+
+.gchat-msg__doc-card-actions :deep(.n-button) {
+  margin-left: 0;
 }
 
 /* ── Markdown 内容样式（gchat-md） ── */

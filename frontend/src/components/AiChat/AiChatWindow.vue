@@ -9,7 +9,13 @@ import {
   SparklesOutline,
   StopCircleOutline,
 } from '@vicons/ionicons5'
-import { chatStream, type ChatMessage, type ChatIntent, type ChatMode } from '@/api/qa'
+import {
+  chatStream,
+  type ChatMessage,
+  type ChatIntent,
+  type ChatMode,
+  type ChatSourceItem,
+} from '@/api/qa'
 import ChatMessageItem from './ChatMessageItem.vue'
 
 export interface DisplayMessage {
@@ -18,7 +24,11 @@ export interface DisplayMessage {
   content: string
   reasoning: string
   intent?: ChatIntent
-  sources?: { title: string; documentId: number; fileName?: string }[]
+  /** 文档检索等 */
+  sources?: ChatSourceItem[]
+  /** 知识问答：实际引用 / 其他检索结果 */
+  citedSources?: ChatSourceItem[]
+  relatedSources?: ChatSourceItem[]
   streaming?: boolean
   reasoningPanelOpen?: boolean
   /** 后端提示（如已忽略历史、建议清空对话） */
@@ -160,7 +170,18 @@ function handleSend() {
     },
     onDone: (data) => {
       const msg = messages.value[assistantIdx]
-      msg.sources = data.sources
+      if (data.trimSuffix) {
+        msg.content = msg.content.replace(data.trimSuffix, '').trimEnd()
+      }
+      if (data.sources !== undefined) {
+        msg.sources = data.sources
+      }
+      if (data.citedSources !== undefined) {
+        msg.citedSources = data.citedSources
+      }
+      if (data.relatedSources !== undefined) {
+        msg.relatedSources = data.relatedSources
+      }
       msg.streaming = false
       if (msg.reasoning) msg.reasoningPanelOpen = false
       isStreaming.value = false

@@ -9,6 +9,8 @@ export interface ChatMessage {
   content: string
 }
 
+export type ChatSourceItem = { title: string; documentId: number; fileName?: string }
+
 export interface ChatStreamCallbacks {
   onMeta?: (data: {
     requestId: string
@@ -19,7 +21,14 @@ export interface ChatStreamCallbacks {
   onReasoningDelta?: (content: string) => void
   onAnswerDelta?: (content: string) => void
   onDone?: (data: {
-    sources?: { title: string; documentId: number; fileName?: string }[]
+    /** 文档检索等场景 */
+    sources?: ChatSourceItem[]
+    /** 知识问答：模型实际引用的参考 */
+    citedSources?: ChatSourceItem[]
+    /** 知识问答：检索到但未在回答中引用的文档 */
+    relatedSources?: ChatSourceItem[]
+    /** 需从回答末尾裁掉的 [CITED:...] 片段 */
+    trimSuffix?: string
   }) => void
   onHint?: (data: { message: string }) => void
   onError?: (message: string) => void
