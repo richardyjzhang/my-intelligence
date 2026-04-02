@@ -106,6 +106,7 @@ function handleResize() {
     :class="{
       'gchat-msg--user': message.role === 'user',
       'gchat-msg--assistant': message.role === 'assistant',
+      'gchat-msg--expanded': expanded,
     }"
     :data-msg-id="message.id"
   >
@@ -224,6 +225,10 @@ function handleResize() {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.gchat-msg--expanded .gchat-msg__body {
+  max-width: 70%;
 }
 
 /* ── 思考区 ── */
