@@ -92,3 +92,14 @@ CREATE TABLE IF NOT EXISTS `document_tag` (
     `tag_id`      BIGINT NOT NULL,
     PRIMARY KEY (`document_id`, `tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文档知识-标签关联表';
+
+-- ============================================
+-- 用户个性化（主题色、AI 助手）
+-- ============================================
+CREATE TABLE IF NOT EXISTS `user_personalization` (
+    `user_id`               BIGINT       NOT NULL COMMENT '用户 ID，主键（与 user.id 逻辑关联，不建外键）',
+    `theme_title`           VARCHAR(64)  NOT NULL COMMENT '主题色标题（中文，与内置项一致）',
+    `ai_persona_title`      VARCHAR(64)  NOT NULL COMMENT 'AI 人设标题（中文，与内置项一致）',
+    `ai_custom_instruction` TEXT         NULL     COMMENT 'AI 自定义说明',
+    PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户个性化';
