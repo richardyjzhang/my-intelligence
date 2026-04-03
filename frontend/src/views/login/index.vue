@@ -3,12 +3,14 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { hashPassword } from '@/utils/crypto'
 import SliderCaptcha from './SliderCaptcha.vue'
 
 const router = useRouter()
 const message = useMessage()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
 const username = ref('')
 const password = ref('')
@@ -29,6 +31,7 @@ async function handleLogin() {
   try {
     const hashed = await hashPassword(username.value, password.value)
     await authStore.login({ username: username.value, password: hashed })
+    await themeStore.applyFromServer()
     void router.push('/')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : '登录失败'

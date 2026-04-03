@@ -41,6 +41,8 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = ''
       user.value = null
       localStorage.removeItem(TOKEN_KEY)
+      const { useThemeStore } = await import('@/stores/theme')
+      useThemeStore().clearServerTheme()
     }
   }
 

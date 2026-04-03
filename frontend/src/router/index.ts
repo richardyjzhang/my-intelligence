@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { menuConfig, type MenuItemConfig } from './menu'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { TOKEN_KEY } from '@/utils/request'
 
 function flattenRoutes(items: MenuItemConfig[]): RouteRecordRaw[] {
@@ -52,9 +53,11 @@ router.beforeEach(async (to) => {
   }
 
   const authStore = useAuthStore()
+  const themeStore = useThemeStore()
   if (!authStore.user) {
     try {
       await authStore.fetchMe()
+      await themeStore.applyFromServer()
     } catch {
       localStorage.removeItem(TOKEN_KEY)
       return '/login'

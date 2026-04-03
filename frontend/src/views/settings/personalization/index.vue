@@ -10,8 +10,18 @@ import {
   saveAiAssistant,
 } from '@/api/personalization'
 import type { ThemeOption, AiPersonaOption } from '@/api/personalization'
+import { useThemeStore } from '@/stores/theme'
+import { themePresetFromPrimaryHex } from '@/theme/derive'
 
 const message = useMessage()
+const themeStore = useThemeStore()
+
+function applyThemeFromTitle(title: string) {
+  const opt = themeOptions.value.find((o) => o.title === title)
+  if (opt) {
+    themeStore.applyServerPreset(themePresetFromPrimaryHex(title, opt.primaryHex))
+  }
+}
 
 const loading = ref(false)
 const savingTheme = ref(false)
@@ -42,6 +52,7 @@ async function loadAll() {
     selectedThemeTitle.value = m.themeTitle
     selectedPersonaTitle.value = m.aiPersonaTitle
     aiCustomInstruction.value = m.aiCustomInstruction ?? ''
+    applyThemeFromTitle(m.themeTitle)
   } catch (e: unknown) {
     message.error(e instanceof Error ? e.message : '加载失败')
   } finally {
@@ -71,6 +82,7 @@ async function handleSaveTheme() {
     }
     message.success('主题色已保存')
     selectedThemeTitle.value = res.data.themeTitle
+    applyThemeFromTitle(res.data.themeTitle)
   } catch (e: unknown) {
     message.error(e instanceof Error ? e.message : '保存失败')
   } finally {

@@ -87,6 +87,16 @@ select {
   flex-shrink: 0;
 }
 
+/* 与个性化主题色联动（--theme-primary 由 theme store 写入） */
+.app-topbar__badge-bg {
+  fill: color-mix(in srgb, var(--theme-primary) 14%, white);
+}
+
+.app-topbar__badge-bulb {
+  fill: var(--theme-primary);
+  opacity: 0.72;
+}
+
 .app-topbar__name {
   font-size: calc(1rem + 2px);
   font-weight: 600;
