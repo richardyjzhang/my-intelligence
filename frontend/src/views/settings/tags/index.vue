@@ -49,14 +49,24 @@ const formModel = reactive({
 })
 const formSaving = ref(false)
 
+/** 解析为 #RRGGBB（与后端 length=7 一致）；无法解析时返回 null */
+function parseTagColorToHex(input: string | null | undefined): string | null {
+  if (input == null || !String(input).trim()) return null
+  const t = String(input).trim()
+  if (/^#[0-9A-Fa-f]{6}$/i.test(t)) return t.toUpperCase()
+  if (/^[0-9A-Fa-f]{6}$/i.test(t)) return `#${t.toUpperCase()}`
+  if (/^#[0-9A-Fa-f]{8}$/i.test(t)) return `#${t.slice(1, 7).toUpperCase()}`
+  return null
+}
+
 const formRules: FormRules = {
   name: [{ required: true, message: '请输入标签名称', trigger: 'blur' }],
   color: [
-    { required: true, message: '请选择颜色', trigger: 'blur' },
+    { required: true, message: '请选择颜色', trigger: ['blur', 'change'] },
     {
-      pattern: /^#[0-9A-Fa-f]{6}$/,
-      message: '请输入有效的十六进制颜色代码',
-      trigger: 'blur',
+      validator: (_rule, value: string) => parseTagColorToHex(value) !== null,
+      message: '请使用有效的十六进制颜色（#RRGGBB）',
+      trigger: ['blur', 'change'],
     },
   ],
 }
@@ -166,7 +176,7 @@ function handleEdit(row: TagInfo) {
   isEdit.value = true
   editingId.value = row.id
   formModel.name = row.name
-  formModel.color = row.color
+  formModel.color = parseTagColorToHex(row.color) ?? '#409EFF'
   showModal.value = true
 }
 
@@ -199,7 +209,12 @@ async function handleSubmit() {
 
   formSaving.value = true
   try {
-    const params = { name: formModel.name, color: formModel.color }
+    const hex = parseTagColorToHex(formModel.color)
+    if (!hex) {
+      message.error('颜色无效，请重新选择')
+      return
+    }
+    const params = { name: formModel.name, color: hex }
     if (isEdit.value && editingId.value !== null) {
       const res = await updateTag(editingId.value, params)
       if (res.code === 200) {
@@ -253,7 +268,7 @@ onMounted(fetchData)
       v-model:show="showModal"
       preset="card"
       :title="isEdit ? '编辑标签' : '新增标签'"
-      style="width: 460px"
+      style="width: 520px"
       :mask-closable="false"
     >
       <NForm ref="formRef" :model="formModel" :rules="formRules" label-placement="left" label-width="80">
@@ -261,20 +276,25 @@ onMounted(fetchData)
           <NInput v-model:value="formModel.name" placeholder="请输入标签名称" />
         </NFormItem>
         <NFormItem label="颜色" path="color">
-          <NSpace align="center" :size="12" style="width: 100%">
-            <NColorPicker
-              v-model:value="formModel.color"
-              :show-alpha="false"
-              style="width: 180px"
-            />
+          <div class="tag-form-color-row">
+            <div class="tag-form-color-picker-wrap">
+              <NColorPicker
+                v-model:value="formModel.color"
+                :modes="['hex']"
+                :show-alpha="false"
+                size="medium"
+                style="width: 100%"
+              />
+            </div>
             <NTag
+              class="tag-form-color-preview"
               :color="{ color: formModel.color + '1A', textColor: formModel.color, borderColor: formModel.color }"
               size="medium"
               round
             >
               {{ formModel.name || '预览' }}
             </NTag>
-          </NSpace>
+          </div>
         </NFormItem>
       </NForm>
       <template #footer>
@@ -286,3 +306,22 @@ onMounted(fetchData)
     </NModal>
   </NCard>
 </template>
+
+<style scoped>
+.tag-form-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+.tag-form-color-picker-wrap {
+  flex: 1 1 200px;
+  min-width: 200px;
+  max-width: 300px;
+}
+.tag-form-color-preview {
+  flex-shrink: 0;
+}
+</style>
