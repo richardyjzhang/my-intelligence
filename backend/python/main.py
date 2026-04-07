@@ -53,6 +53,18 @@ def chat_stream():
         except (TypeError, ValueError):
             document_id = None
 
+    ai_persona_title = body.get("aiPersonaTitle")
+    if isinstance(ai_persona_title, str):
+        ai_persona_title = ai_persona_title.strip() or None
+    else:
+        ai_persona_title = None
+    ai_custom_instruction = body.get("aiCustomInstruction")
+    if isinstance(ai_custom_instruction, str):
+        t = ai_custom_instruction.strip()
+        ai_custom_instruction = t if t else None
+    else:
+        ai_custom_instruction = None
+
     def generate():
         logger.info(
             "开始生成 SSE 流: model=%s, mode=%s, documentId=%s",
@@ -62,7 +74,15 @@ def chat_stream():
         )
         event_count = 0
         try:
-            for event in chat_agent.chat_stream(query, history, model, mode, document_id):
+            for event in chat_agent.chat_stream(
+                query,
+                history,
+                model,
+                mode,
+                document_id,
+                ai_persona_title=ai_persona_title,
+                ai_custom_instruction=ai_custom_instruction,
+            ):
                 event_count += 1
                 yield event
             logger.info("SSE 流结束, 共发送 %s 个事件", event_count)

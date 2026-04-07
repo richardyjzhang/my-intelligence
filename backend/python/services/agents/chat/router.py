@@ -37,6 +37,9 @@ def chat_stream(
     model: str | None = None,
     mode: str | None = None,
     document_id: int | None = None,
+    *,
+    ai_persona_title: str | None = None,
+    ai_custom_instruction: str | None = None,
 ) -> Generator[str, None, None]:
     """
     流式对话入口。先发送 meta（含 intent），再转发子智能体事件。
@@ -72,14 +75,20 @@ def chat_stream(
 
     yield sse_event("meta", meta_payload)
 
+    persona_kw = {
+        "ai_persona_title": ai_persona_title,
+        "ai_custom_instruction": ai_custom_instruction,
+    }
     if intent == "casual":
-        for ev in casual_stream(query, history, model):
+        for ev in casual_stream(query, history, model, **persona_kw):
             yield ev
     elif intent == "doc_search":
-        for ev in doc_search_stream(query, history, model):
+        for ev in doc_search_stream(query, history, model, **persona_kw):
             yield ev
     else:
-        for ev in knowledge_stream(query, history, model, document_id=document_id):
+        for ev in knowledge_stream(
+            query, history, model, document_id=document_id, **persona_kw
+        ):
             yield ev
 
     if history_dropped:

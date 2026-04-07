@@ -15,6 +15,7 @@ from typing import Generator
 import config
 from services.agents import sse_event
 from services.ai import ai_client, register_agent, AgentProfile
+from services.personalization_prompt import compose_system_with_persona
 from .tools import retrieve_context_expanded, build_messages
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,9 @@ def knowledge_stream(
     history: list[dict] | None = None,
     model: str | None = None,
     document_id: int | None = None,
+    *,
+    ai_persona_title: str | None = None,
+    ai_custom_instruction: str | None = None,
 ) -> Generator[str, None, None]:
     """
     流式问答，yield SSE 格式的事件行（不含 meta）。
@@ -167,10 +171,20 @@ def knowledge_stream(
         messages = build_messages(query, contexts, history, single_document_id=single_doc)
         logger.info("[%s] 构建消息完成, 共 %s 条消息, 调用模型...", request_id, len(messages))
 
+        system_override = compose_system_with_persona(
+            SYSTEM_PROMPT,
+            ai_persona_title=ai_persona_title,
+            ai_custom_instruction=ai_custom_instruction,
+        )
         reasoning_chunks = 0
         answer_chunks = 0
         full_answer_parts: list[str] = []
-        for event_type, text in ai_client.chat_stream(AGENT_ID, messages, model=model):
+        for event_type, text in ai_client.chat_stream(
+            AGENT_ID,
+            messages,
+            model=model,
+            system_prompt_override=system_override,
+        ):
             if event_type == "thinking":
                 reasoning_chunks += 1
                 yield sse_event("reasoning_delta", {"content": text})

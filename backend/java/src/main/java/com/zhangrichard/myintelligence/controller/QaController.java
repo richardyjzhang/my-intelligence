@@ -2,6 +2,8 @@ package com.zhangrichard.myintelligence.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangrichard.myintelligence.entity.UserPersonalization;
+import com.zhangrichard.myintelligence.service.PersonalizationService;
 import com.zhangrichard.myintelligence.service.QaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -19,6 +21,9 @@ public class QaController {
 
     @Autowired
     private QaService qaService;
+
+    @Autowired
+    private PersonalizationService personalizationService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -41,6 +46,14 @@ public class QaController {
                 documentId = v;
             }
         }
-        return qaService.chatStream(query, historyJson, mode, documentId);
+        UserPersonalization p = personalizationService.getForCurrentUser();
+        return qaService.chatStream(
+                query,
+                historyJson,
+                mode,
+                documentId,
+                p.getAiPersonaTitle(),
+                p.getAiCustomInstruction()
+        );
     }
 }

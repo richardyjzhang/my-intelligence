@@ -9,6 +9,7 @@ from typing import Generator
 import config
 from services.agents import sse_event
 from services.ai import ai_client, register_agent, AgentProfile
+from services.personalization_prompt import compose_system_with_persona
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,9 @@ def casual_stream(
     query: str,
     history: list[dict] | None = None,
     model: str | None = None,
+    *,
+    ai_persona_title: str | None = None,
+    ai_custom_instruction: str | None = None,
 ) -> Generator[str, None, None]:
     history = history or []
     model = model or getattr(config, "CHAT_MODEL", "qwen3:8b")
@@ -51,7 +55,17 @@ def casual_stream(
         messages = _build_messages(query, history)
         logger.info("[%s] 闲聊: query=%s", request_id, query[:80])
 
-        for event_type, text in ai_client.chat_stream(AGENT_ID, messages, model=model):
+        system_override = compose_system_with_persona(
+            SYSTEM_PROMPT,
+            ai_persona_title=ai_persona_title,
+            ai_custom_instruction=ai_custom_instruction,
+        )
+        for event_type, text in ai_client.chat_stream(
+            AGENT_ID,
+            messages,
+            model=model,
+            system_prompt_override=system_override,
+        ):
             if event_type == "thinking":
                 yield sse_event("reasoning_delta", {"content": text})
             else:

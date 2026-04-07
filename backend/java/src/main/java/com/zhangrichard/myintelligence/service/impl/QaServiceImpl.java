@@ -1,8 +1,11 @@
 package com.zhangrichard.myintelligence.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zhangrichard.myintelligence.service.QaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -23,24 +26,41 @@ public class QaServiceImpl implements QaService {
     @Value("${app.python.base-url:http://localhost:8081}")
     private String pythonBaseUrl;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Override
-    public SseEmitter chatStream(String query, String historyJson, String mode, Integer documentId) {
+    public SseEmitter chatStream(
+            String query,
+            String historyJson,
+            String mode,
+            Integer documentId,
+            String aiPersonaTitle,
+            String aiCustomInstruction
+    ) {
         SseEmitter emitter = new SseEmitter(300_000L);
 
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                String requestBody = "{\"query\":" + escapeJson(query);
+                ObjectNode root = objectMapper.createObjectNode();
+                root.put("query", query);
                 if (historyJson != null && !historyJson.isBlank()) {
-                    requestBody += ",\"history\":" + historyJson;
+                    root.set("history", objectMapper.readTree(historyJson));
                 }
                 if (mode != null && !mode.isBlank()) {
-                    requestBody += ",\"mode\":" + escapeJson(mode);
+                    root.put("mode", mode);
                 }
                 if (documentId != null) {
-                    requestBody += ",\"documentId\":" + documentId;
+                    root.put("documentId", documentId);
                 }
-                requestBody += "}";
+                if (aiPersonaTitle != null && !aiPersonaTitle.isBlank()) {
+                    root.put("aiPersonaTitle", aiPersonaTitle.trim());
+                }
+                if (aiCustomInstruction != null && !aiCustomInstruction.isBlank()) {
+                    root.put("aiCustomInstruction", aiCustomInstruction.trim());
+                }
+                String requestBody = objectMapper.writeValueAsString(root);
 
                 URI uri = URI.create(pythonBaseUrl + "/chat/stream");
                 conn = (HttpURLConnection) uri.toURL().openConnection();
@@ -106,16 +126,5 @@ public class QaServiceImpl implements QaService {
         }).start();
 
         return emitter;
-    }
-
-    private String escapeJson(String value) {
-        if (value == null) return "null";
-        return "\"" + value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t")
-                + "\"";
     }
 }
